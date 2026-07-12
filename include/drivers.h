@@ -24,6 +24,7 @@
 #define ASTER_KEY_RIGHT 0x106
 
 void keyboard_init(void);
+void keyboard_set_refresh_callback(void (*cb)(void), unsigned long interval_ticks);
 int keyboard_read_key(void);
 int keyboard_try_read_key(void);
 int keyboard_readline(char *buffer, int max_len);

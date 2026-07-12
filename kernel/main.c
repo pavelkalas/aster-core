@@ -77,25 +77,6 @@ static unsigned int g_boot_splash_steps_done = 0;
 static char g_boot_splash_log[4][56];
 static unsigned int g_boot_splash_log_count = 0;
 
-static unsigned int cpu_usage_percent(void) {
-    process_t *table = process_table();
-    usize count = process_count();
-    usize active = 0;
-    usize i;
-
-    if (count == 0) {
-        return 0;
-    }
-
-    for (i = 0; i < count; ++i) {
-        if (table[i].state == PROCESS_READY || table[i].state == PROCESS_RUNNING) {
-            ++active;
-        }
-    }
-
-    return (unsigned int)((active * 100U) / count);
-}
-
 static usize append_text(char *dst, usize pos, usize max, const char *src) {
     while (*src && pos + 1 < max) {
         dst[pos++] = *src++;
@@ -190,7 +171,6 @@ static void render_shell_statusbar(void) {
     usize total = memory_total_pages();
     usize freep = memory_free_pages();
     usize used = total >= freep ? total - freep : 0;
-    unsigned int cpu = cpu_usage_percent();
     char left[64];
     char right[64];
     char middle[64];
@@ -227,21 +207,7 @@ static void render_shell_statusbar(void) {
         }
     }
 
-    /* Right aligned label. */
     right[0] = '\0';
-    if (!g_status_marquee_only) {
-        const char *prefix = "cpu usage: ";
-        usize p = 0;
-        while (prefix[p] && p < sizeof(right) - 1) {
-            right[p] = prefix[p];
-            ++p;
-        }
-        p = append_uint(right, p, sizeof(right), cpu);
-        if (p + 1 < sizeof(right)) {
-            right[p++] = '%';
-        }
-        right[p] = '\0';
-    }
 
     rlen = 0;
     while (right[rlen]) ++rlen;
@@ -294,6 +260,10 @@ static void render_shell_statusbar(void) {
         save_row = SCREEN_H - 2;
     }
     display_set_cursor(save_row, save_col);
+}
+
+static void shell_status_refresh_callback(void) {
+    render_shell_statusbar();
 }
 
 static inline void outb(u16 port, u8 value) {
@@ -2933,6 +2903,7 @@ void kmain(void) {
 
     boot_step_begin("Timer driver");
     timer_init((unsigned int)g_timer_hz);
+    keyboard_set_refresh_callback(shell_status_refresh_callback, g_timer_hz ? g_timer_hz : 100UL);
     boot_step_ok("Timer driver");
 
     boot_step_begin("Storage + AsterFS");

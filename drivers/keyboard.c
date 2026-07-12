@@ -13,6 +13,7 @@
 
 #include "display.h"
 #include "drivers.h"
+#include "timer.h"
 
 #define KBD_HISTORY_MAX 32
 #define KBD_HISTORY_LINE_MAX 128
@@ -22,6 +23,8 @@ static int g_history_count = 0;
 static int g_history_head = 0;
 static int g_ctrl_down = 0;
 static int g_shift_down = 0;
+static void (*g_refresh_cb)(void) = 0;
+static unsigned long g_refresh_interval_ticks = 0;
 
 static char apply_letter_case(char c) {
     int upper = g_shift_down;
@@ -51,6 +54,11 @@ static const char keymap[128] = {
 };
 
 void keyboard_init(void) {
+}
+
+void keyboard_set_refresh_callback(void (*cb)(void), unsigned long interval_ticks) {
+    g_refresh_cb = cb;
+    g_refresh_interval_ticks = interval_ticks;
 }
 
 int keyboard_try_read_key(void) {
@@ -225,13 +233,27 @@ static void history_push(const char *line) {
 int keyboard_readline(char *buffer, int max_len) {
     int i = 0;
     int history_nav = -1;
+    unsigned long last_refresh_tick = timer_ticks();
 
     if (max_len <= 1) {
         return 0;
     }
 
     for (;;) {
-        int c = keyboard_read_key();
+        int c = keyboard_try_read_key();
+
+        if (c == -1) {
+            if (g_refresh_cb && g_refresh_interval_ticks > 0) {
+                unsigned long now = timer_ticks();
+                if ((now - last_refresh_tick) >= g_refresh_interval_ticks) {
+                    g_refresh_cb();
+                    last_refresh_tick = now;
+                }
+            }
+
+            __asm__ volatile ("pause");
+            continue;
+        }
 
         if (c == ASTER_KEY_F1 || c == ASTER_KEY_F2) {
             continue;
