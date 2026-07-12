@@ -33,6 +33,7 @@ KERNEL_OBJS := \
 	$(BUILD)/kernel/string.o \
 	$(BUILD)/drivers/display.o \
 	$(BUILD)/drivers/keyboard.o \
+	$(BUILD)/drivers/serial.o \
 	$(BUILD)/drivers/timer.o \
 	$(BUILD)/drivers/storage.o
 
