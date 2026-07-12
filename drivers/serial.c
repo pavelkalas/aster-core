@@ -1,6 +1,14 @@
 /*
  * AsterOS Kernel
- * COM1 serial driver for robust debugging output.
+ * Autor: Pavel Kalas
+ * Rok: 2026
+ *
+ */
+
+/*
+ * Ovladač sériového portu (COM1).
+ * Inicializuje sériovou komunikaci a umožňuje
+ * odesílat znaky a text přes sériový port.
  */
 
 #include "serial.h"
