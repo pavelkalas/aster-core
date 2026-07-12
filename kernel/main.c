@@ -2311,22 +2311,6 @@ static void fs_list_cb(const char *name, u8 is_dir, u16 size) {
     printk("%s  %s  %u\n", is_dir ? "DIR " : "FILE", name, (unsigned int)size);
 }
 
-static void show_color_test(void) {
-    aster_print("\n");
-
-    display_set_color(0x00, 0x04);
-    aster_print("          ");
-    display_set_color(0x00, 0x02);
-    aster_print("          ");
-    display_set_color(0x00, 0x01);
-    aster_print("          ");
-    display_set_color(0x00, 0x0E);
-    aster_print("          ");
-
-    display_set_color(0x0F, 0x00);
-    aster_print("\n\n");
-}
-
 static void run_c_like_script(const char *path) {
     char src[ASTERFS_DATA_LEN + 1];
     int n = asterfs_read_file(path, (u8 *)src, ASTERFS_DATA_LEN);
@@ -2869,65 +2853,25 @@ static void shell_loop(void) {
 
 void kmain(void) {
     display_init();
-    boot_splash_begin(9);
 
-    boot_step_begin("Serial COM1");
     serial_init();
     if (serial_is_ready()) {
         printk("[serial] COM1 initialized\n");
-        boot_step_ok("Serial COM1");
-    } else {
-        boot_step_skip("Serial COM1 (not detected)");
     }
 
-    boot_step_begin("CPU setup");
     cpu_init();
-    boot_step_ok("CPU setup");
-
-    boot_step_begin("Memory manager");
     memory_init();
-    boot_step_ok("Memory manager");
-
-    boot_step_begin("Process subsystem");
     process_init();
     scheduler_init();
-    boot_step_ok("Process subsystem");
-
-    boot_step_begin("Syscall interface");
     syscall_init();
-    boot_step_ok("Syscall interface");
-
-    boot_step_begin("Keyboard driver");
     keyboard_init();
-    boot_step_ok("Keyboard driver");
-
-    boot_step_begin("Timer driver");
     timer_init((unsigned int)g_timer_hz);
     keyboard_set_refresh_callback(shell_status_refresh_callback, g_timer_hz ? g_timer_hz : 100UL);
-    boot_step_ok("Timer driver");
-
-    boot_step_begin("Storage + AsterFS");
     storage_init();
-    boot_step_ok("Storage + AsterFS");
-
-    (void)aster_process_create(demo_task_a, "initA", 1);
-    (void)aster_process_create(demo_task_b, "initB", 1);
-    scheduler_run_once();
-
-    boot_step_begin("Interrupts");
     interrupts_init();
-    boot_step_ok("Interrupts");
-
-    boot_splash_end();
-    display_clear();
-    show_welcome_banner();
-    show_color_test();
-    aster_print("Pro zobrazeni vsech prikazu zadej 'help'\n");
 
     for (;;) {
-        timer_sleep_ms(2000);
         auth_login_screen();
-        timer_sleep_ms(2000);
         ensure_aliases_file();
         display_clear();
         if (system_is_installed()) {
