@@ -765,8 +765,8 @@ static void print_exec_profile(const void *entry_addr, unsigned long start_ticks
     print_exec_profile_ticks(entry_addr, delta_ticks);
 }
 
-static const char *g_help_lines[] = {
-    "help [1|2|3]          - napoveda po strankach",
+static const char g_help_lines[][80] = {
+    "help [stranka]        - napoveda po strankach",
     "helpall               - interaktivni help Enter/Q",
     "info                  - informace o jadru",
     "memory|mem            - stav pameti",
@@ -825,7 +825,7 @@ static void shell_help_page(unsigned int page) {
     for (i = start; i < end; ++i) {
         printk("  %s\n", g_help_lines[i]);
     }
-    aster_print("Tip: pouzij help 1, help 2, help 3 nebo helpall\n");
+    aster_print("Tip: pouzij help <cislo_stranky> nebo helpall\n");
 }
 
 static void shell_help_all(void) {
@@ -2479,7 +2479,7 @@ static void shell_loop(void) {
             if (arg1) {
                 page = (unsigned int)parse_u32(arg1, &ok);
                 if (!ok || page == 0) {
-                    print_error("Pouziti: help [1|2|3]");
+                    print_error("Pouziti: help [1..N]");
                 } else {
                     shell_help_page(page);
                 }
