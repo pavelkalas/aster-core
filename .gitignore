@@ -1,0 +1,11 @@
+build/
+tools/
+asterfs.img
+clean.sh
+CONTRIBUTING.md
+DOCS.md
+README.md
+ROADMAP.md
+setup
+setup.sh
+setup-runfromdisk.sh
