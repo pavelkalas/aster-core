@@ -23,6 +23,8 @@
 #include "syscall.h"
 #include "timer.h"
 
+void app_tetris_main(void);
+
 static char g_cwd[ASTERFS_NAME_LEN] = "/";
 static unsigned long g_timer_hz = 100UL;
 
@@ -788,6 +790,7 @@ static const char *g_help_lines[] = {
     "./filename            - C-like script printf",
     "edit filename         - editor (Ctrl+S, ESC)",
     "calc A op B           - vypocet (+ - * /)",
+    "tetris                - testovaci hra nad app API",
     "echo text             - vypis textu",
     "ticks                 - pocet tiknuti casovace",
     "alloc N               - alokovat N bajtu",
@@ -2778,6 +2781,9 @@ static void shell_loop(void) {
             } else {
                 print_exec_profile((const void *)show_calc_ui, t0);
             }
+        } else if (aster_strcmp(exec_cmd, "tetris") == 0) {
+            app_tetris_main();
+            render_shell_statusbar();
         } else if (aster_strcmp(exec_cmd, "alloc") == 0) {
             int ok;
             unsigned long n;
