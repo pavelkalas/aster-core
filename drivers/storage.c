@@ -250,7 +250,16 @@ static void fs_decode_nodes(const u8 *in) {
 
         aster_memset(nodes[i].name, 0, ASTERFS_NAME_LEN);
         aster_memcpy(nodes[i].name, d.name, ASTERFS_NAME_LEN);
+        nodes[i].name[ASTERFS_NAME_LEN - 1] = '\0';
+
+        if (nodes[i].name[0] != '\0' && nodes[i].name[0] != '/') {
+            nodes[i].name[0] = '\0';
+        }
+
         nodes[i].is_dir = d.is_dir;
+        if (nodes[i].is_dir > 1) {
+            nodes[i].is_dir = 0;
+        }
         nodes[i].size = d.size;
         if (nodes[i].size > ASTERFS_DATA_LEN) {
             nodes[i].size = ASTERFS_DATA_LEN;
@@ -340,6 +349,21 @@ static int fs_load_disk(void) {
 
 static int is_root(const char *path) {
     return path && path[0] == '/' && path[1] == '\0';
+}
+
+static int path_is_valid(const char *path) {
+    usize len;
+
+    if (!path) {
+        return 0;
+    }
+
+    len = aster_strlen(path);
+    if (len == 0 || len >= ASTERFS_NAME_LEN) {
+        return 0;
+    }
+
+    return path[0] == '/';
 }
 
 static int path_parent_exists(const char *path) {
@@ -453,7 +477,15 @@ void asterfs_init(void) {
 static int find_node(const char *name) {
     int i;
 
+    if (!path_is_valid(name)) {
+        return -1;
+    }
+
     for (i = 0; i < nodes_used; ++i) {
+        if (!path_is_valid(nodes[i].name)) {
+            continue;
+        }
+
         if (aster_strcmp(nodes[i].name, name) == 0) {
             return i;
         }
@@ -465,7 +497,7 @@ static int find_node(const char *name) {
 int asterfs_create_file(const char *name) {
     usize len;
 
-    if (!name || name[0] != '/' || nodes_used >= ASTERFS_MAX_FILES) {
+    if (!path_is_valid(name) || is_root(name) || nodes_used >= ASTERFS_MAX_FILES) {
         return -1;
     }
 
@@ -494,7 +526,7 @@ int asterfs_create_file(const char *name) {
 int asterfs_create_dir(const char *name) {
     usize len;
 
-    if (!name || name[0] != '/' || is_root(name) || nodes_used >= ASTERFS_MAX_FILES) {
+    if (!path_is_valid(name) || is_root(name) || nodes_used >= ASTERFS_MAX_FILES) {
         return -1;
     }
 
@@ -524,6 +556,10 @@ int asterfs_remove_file(const char *name) {
     int idx;
     int i;
 
+    if (!path_is_valid(name)) {
+        return -1;
+    }
+
     idx = find_node(name);
     if (idx < 0 || nodes[idx].is_dir) {
         return -1;
@@ -543,7 +579,7 @@ int asterfs_remove_dir(const char *name) {
     int i;
     const char *leaf;
 
-    if (is_root(name)) {
+    if (!path_is_valid(name) || is_root(name)) {
         return -1;
     }
 
@@ -574,7 +610,7 @@ int asterfs_remove_dir(const char *name) {
 int asterfs_write_file(const char *name, const u8 *data, u16 len) {
     int idx;
 
-    if (!name || !data || name[0] != '/') {
+    if (!path_is_valid(name) || !data || is_root(name)) {
         return -1;
     }
 
@@ -605,7 +641,7 @@ int asterfs_read_file(const char *name, u8 *out, u16 max_len) {
     int idx;
     u16 len;
 
-    if (!name || !out || name[0] != '/') {
+    if (!path_is_valid(name) || !out || is_root(name)) {
         return -1;
     }
 
@@ -626,7 +662,15 @@ int asterfs_read_file(const char *name, u8 *out, u16 max_len) {
 void asterfs_list(void (*cb)(const char *name, u8 is_dir, u16 size)) {
     int i;
 
+    if (!cb) {
+        return;
+    }
+
     for (i = 0; i < nodes_used; ++i) {
+        if (!path_is_valid(nodes[i].name)) {
+            continue;
+        }
+
         cb(nodes[i].name, nodes[i].is_dir, nodes[i].size);
     }
 }
@@ -652,7 +696,19 @@ void asterfs_list_dir(const char *path, void (*cb)(const char *name, u8 is_dir, 
     char temp[ASTERFS_NAME_LEN];
     usize n;
 
+    if (!path || !cb) {
+        return;
+    }
+
+    if (!is_root(path) && !path_is_valid(path)) {
+        return;
+    }
+
     for (i = 0; i < nodes_used; ++i) {
+        if (!path_is_valid(nodes[i].name)) {
+            continue;
+        }
+
         if (!path_is_child(path, nodes[i].name, &leaf)) {
             continue;
         }
