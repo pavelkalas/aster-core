@@ -35,12 +35,14 @@ KERNEL_OBJS := \
 	$(BUILD)/drivers/keyboard.o \
 	$(BUILD)/drivers/serial.o \
 	$(BUILD)/drivers/timer.o \
-	$(BUILD)/drivers/storage.o
+	$(BUILD)/drivers/storage.o \
+	$(BUILD)/apps/calc_app.o \
+	$(BUILD)/apps/tetris_app.o
 
 all: $(IMG)
 
 $(BUILD):
-	mkdir -p $(BUILD)/boot $(BUILD)/kernel $(BUILD)/arch/x86_64 $(BUILD)/drivers
+	mkdir -p $(BUILD)/boot $(BUILD)/kernel $(BUILD)/arch/x86_64 $(BUILD)/drivers $(BUILD)/apps
 
 $(BUILD)/boot/boot.bin: boot/boot.asm | $(BUILD)
 	$(AS) -f bin $< -o $@
@@ -58,6 +60,9 @@ $(BUILD)/kernel/%.o: kernel/%.c | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(BUILD)/drivers/%.o: drivers/%.c | $(BUILD)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILD)/apps/%.o: apps/%.c | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(BUILD)/kernel.elf: $(KERNEL_OBJS) linker.ld
