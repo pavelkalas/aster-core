@@ -14,6 +14,8 @@
 #ifndef ASTER_DRIVERS_H
 #define ASTER_DRIVERS_H
 
+#include "serial.h"
+
 #define ASTER_KEY_F1  0x101
 #define ASTER_KEY_F2  0x102
 #define ASTER_KEY_UP  0x103
