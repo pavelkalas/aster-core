@@ -2899,10 +2899,20 @@ static void shell_loop(void) {
 
 void kmain(void) {
     display_init();
-    boot_splash_begin(8);
+    boot_splash_begin(9);
+
+    boot_step_begin("Serial COM1");
+    serial_init();
+    if (serial_is_ready()) {
+        printk("[serial] COM1 initialized\n");
+        boot_step_ok("Serial COM1");
+    } else {
+        boot_step_skip("Serial COM1 (not detected)");
+    }
 
     boot_step_begin("CPU setup");
-    boot_step_skip("CPU setup");
+    cpu_init();
+    boot_step_ok("CPU setup");
 
     boot_step_begin("Memory manager");
     memory_init();
@@ -2934,7 +2944,8 @@ void kmain(void) {
     scheduler_run_once();
 
     boot_step_begin("Interrupts");
-    boot_step_skip("Interrupts");
+    interrupts_init();
+    boot_step_ok("Interrupts");
 
     boot_splash_end();
     display_clear();
@@ -2943,7 +2954,9 @@ void kmain(void) {
     aster_print("Pro zobrazeni vsech prikazu zadej 'help'\n");
 
     for (;;) {
+        timer_sleep_ms(2000);
         auth_login_screen();
+        timer_sleep_ms(2000);
         ensure_aliases_file();
         display_clear();
         if (system_is_installed()) {
