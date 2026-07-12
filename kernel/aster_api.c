@@ -24,6 +24,17 @@
 
 static aster_api_dirent_cb g_list_cb = 0;
 static void *g_list_user = 0;
+static int g_app_should_close = 0;
+
+static int clamp_i32(int v, int min_v, int max_v) {
+    if (v < min_v) {
+        return min_v;
+    }
+    if (v > max_v) {
+        return max_v;
+    }
+    return v;
+}
 
 static void aster_api_list_bridge(const char *name, u8 is_dir, u16 size) {
     aster_api_dirent_t entry;
@@ -158,6 +169,104 @@ int aster_api_try_read_key(void) {
 
 int aster_api_read_line(char *buffer, int max_len) {
     return (int)aster_read_line(buffer, (i64)max_len);
+}
+
+int aster_api_render(int x, int y, int width, int height, u8 color) {
+    char row_buf[ASTER_API_SCREEN_W + 1];
+    int i;
+    int yy;
+    int w;
+    int x0;
+    int y0;
+    int y1;
+
+    if (width <= 0 || height <= 0) {
+        return ASTER_API_ERR_INVALID;
+    }
+
+    x0 = clamp_i32(x, 0, ASTER_API_SCREEN_W - 1);
+    y0 = clamp_i32(y, 0, ASTER_API_SCREEN_H - 1);
+    y1 = clamp_i32(y + height - 1, 0, ASTER_API_SCREEN_H - 1);
+
+    if (x >= ASTER_API_SCREEN_W || y >= ASTER_API_SCREEN_H) {
+        return ASTER_API_ERR_INVALID;
+    }
+
+    w = width;
+    if (x0 + w > ASTER_API_SCREEN_W) {
+        w = ASTER_API_SCREEN_W - x0;
+    }
+    if (w <= 0) {
+        return ASTER_API_ERR_INVALID;
+    }
+
+    for (i = 0; i < w; ++i) {
+        row_buf[i] = ' ';
+    }
+    row_buf[w] = '\0';
+
+    for (yy = y0; yy <= y1; ++yy) {
+        display_write_at((usize)yy, (usize)x0, row_buf, 0x0F, color & 0x07);
+    }
+
+    return ASTER_API_OK;
+}
+
+int aster_api_render_char(int x, int y, char ch, u8 fg, u8 bg) {
+    char text[2];
+
+    if (x < 0 || y < 0 || x >= ASTER_API_SCREEN_W || y >= ASTER_API_SCREEN_H) {
+        return ASTER_API_ERR_INVALID;
+    }
+
+    text[0] = ch;
+    text[1] = '\0';
+    display_write_at((usize)y, (usize)x, text, fg & 0x0F, bg & 0x07);
+    return ASTER_API_OK;
+}
+
+int aster_api_render_text(int x, int y, const char *text, u8 font_color, u8 back_color) {
+    if (!text) {
+        return ASTER_API_ERR_INVALID;
+    }
+
+    if (x < 0 || y < 0 || x >= ASTER_API_SCREEN_W || y >= ASTER_API_SCREEN_H) {
+        return ASTER_API_ERR_INVALID;
+    }
+
+    display_write_at((usize)y, (usize)x, text, font_color & 0x0F, back_color & 0x07);
+    return ASTER_API_OK;
+}
+
+int aster_api_render_border(int x, int y, int width, int height, u8 fg, u8 bg) {
+    int xx;
+    int yy;
+    int right;
+    int bottom;
+
+    if (width < 2 || height < 2) {
+        return ASTER_API_ERR_INVALID;
+    }
+
+    right = x + width - 1;
+    bottom = y + height - 1;
+
+    for (xx = x; xx <= right; ++xx) {
+        (void)aster_api_render_char(xx, y, '-', fg, bg);
+        (void)aster_api_render_char(xx, bottom, '-', fg, bg);
+    }
+
+    for (yy = y; yy <= bottom; ++yy) {
+        (void)aster_api_render_char(x, yy, '|', fg, bg);
+        (void)aster_api_render_char(right, yy, '|', fg, bg);
+    }
+
+    (void)aster_api_render_char(x, y, '+', fg, bg);
+    (void)aster_api_render_char(right, y, '+', fg, bg);
+    (void)aster_api_render_char(x, bottom, '+', fg, bg);
+    (void)aster_api_render_char(right, bottom, '+', fg, bg);
+
+    return ASTER_API_OK;
 }
 
 int aster_api_file_create(const char *path) {
@@ -320,4 +429,83 @@ int aster_api_str_starts_with(const char *text, const char *prefix) {
 
     n = aster_strlen(prefix);
     return aster_strncmp(text, prefix, n) == 0 ? 1 : 0;
+}
+
+int aster_api_app_run(const aster_api_app_callbacks_t *callbacks, void *user, u32 target_fps) {
+    aster_api_app_state_t state;
+    u64 prev;
+
+    if (!callbacks) {
+        return ASTER_API_ERR_INVALID;
+    }
+
+    if (target_fps == 0) {
+        target_fps = 20;
+    }
+
+    g_app_should_close = 0;
+
+    aster_memset(&state, 0, sizeof(state));
+    state.running = 1;
+    state.target_fps = target_fps;
+    state.ticks_now = aster_api_ticks_now();
+    prev = state.ticks_now;
+
+    if (callbacks->initial) {
+        int rc = callbacks->initial(&state, user);
+        if (rc == ASTER_API_APP_CLOSE) {
+            state.running = 0;
+        } else if (rc == ASTER_API_APP_ERROR) {
+            return ASTER_API_APP_ERROR;
+        }
+    }
+
+    while (state.running && !g_app_should_close) {
+        int urc = ASTER_API_APP_CONTINUE;
+        int drc = ASTER_API_APP_CONTINUE;
+        u32 frame_ms;
+
+        state.ticks_now = aster_api_ticks_now();
+        state.dt_ticks = state.ticks_now - prev;
+        prev = state.ticks_now;
+
+        if (callbacks->update) {
+            urc = callbacks->update(&state, user);
+            if (urc == ASTER_API_APP_ERROR) {
+                state.running = 0;
+                break;
+            }
+            if (urc == ASTER_API_APP_CLOSE) {
+                state.running = 0;
+            }
+        }
+
+        if (state.running && callbacks->draw) {
+            drc = callbacks->draw(&state, user);
+            if (drc == ASTER_API_APP_ERROR) {
+                state.running = 0;
+                break;
+            }
+            if (drc == ASTER_API_APP_CLOSE) {
+                state.running = 0;
+            }
+        }
+
+        ++state.frame;
+        frame_ms = (u32)(1000U / (state.target_fps ? state.target_fps : 1U));
+        if (frame_ms == 0) {
+            frame_ms = 1;
+        }
+        (void)aster_api_sleep_ms(frame_ms);
+    }
+
+    if (callbacks->closing) {
+        (void)callbacks->closing(&state, user);
+    }
+
+    return ASTER_API_OK;
+}
+
+void aster_api_app_request_close(void) {
+    g_app_should_close = 1;
 }
