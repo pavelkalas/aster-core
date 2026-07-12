@@ -89,8 +89,48 @@ static void pic_remap(void) {
     outb(0xA1, 0x01);
     io_wait();
 
-    outb(0x21, 0x00);
-    outb(0xA1, 0x00);
+    /* Unmask IRQ0(timer), IRQ1(keyboard), IRQ2(cascade); keep the rest masked. */
+    outb(0x21, 0xF8);
+    outb(0xA1, 0xFF);
+}
+
+static inline u64 read_cr2(void) {
+    u64 value;
+    __asm__ volatile ("mov %%cr2, %0" : "=r"(value));
+    return value;
+}
+
+static void pic_send_eoi(u64 vector) {
+    if (vector >= 40) {
+        outb(0xA0, 0x20);
+    }
+    outb(0x20, 0x20);
+}
+
+static const char *exception_name(u64 vector) {
+    switch (vector) {
+        case 8:
+            return "Double Fault";
+        case 13:
+            return "General Protection Fault";
+        case 14:
+            return "Page Fault";
+        default:
+            return "CPU Exception";
+    }
+}
+
+static void dump_frame(interrupt_frame_t *f) {
+    printk("[EXC] %s (vector=%u error=%x)\n", exception_name(f->vector), (u32)f->vector, (u32)f->error);
+    printk("[EXC] RIP=%p CS=%p RFLAGS=%p RSP=%p SS=%p\n", (void *)f->rip, (void *)f->cs, (void *)f->rflags, (void *)f->rsp, (void *)f->ss);
+    printk("[EXC] RAX=%p RBX=%p RCX=%p RDX=%p\n", (void *)f->rax, (void *)f->rbx, (void *)f->rcx, (void *)f->rdx);
+    printk("[EXC] RSI=%p RDI=%p RBP=%p\n", (void *)f->rsi, (void *)f->rdi, (void *)f->rbp);
+    printk("[EXC] R8 =%p R9 =%p R10=%p R11=%p\n", (void *)f->r8, (void *)f->r9, (void *)f->r10, (void *)f->r11);
+    printk("[EXC] R12=%p R13=%p R14=%p R15=%p\n", (void *)f->r12, (void *)f->r13, (void *)f->r14, (void *)f->r15);
+
+    if (f->vector == 14) {
+        printk("[EXC] CR2(fault addr)=%p\n", (void *)read_cr2());
+    }
 }
 
 void cpu_init(void) {
@@ -132,18 +172,18 @@ void interrupts_init(void) {
 
 void interrupt_dispatch(interrupt_frame_t *frame) {
     if (frame->vector < 32) {
-        printk("[EXC] vector=%d error=%x\n", (int)frame->vector, (u32)frame->error);
+        dump_frame(frame);
         panic("CPU exception");
     }
 
     if (frame->vector == 32) {
         scheduler_tick();
-        outb(0x20, 0x20);
+        pic_send_eoi(frame->vector);
         return;
     }
 
     if (frame->vector == 33) {
-        outb(0x20, 0x20);
+        pic_send_eoi(frame->vector);
         return;
     }
 
