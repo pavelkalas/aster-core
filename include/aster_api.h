@@ -26,6 +26,20 @@
 #define ASTER_API_CAP_STORAGE  (1U << 4)
 #define ASTER_API_CAP_PROCESS  (1U << 5)
 
+#define ASTER_API_SCREEN_W 80
+#define ASTER_API_SCREEN_H 25
+
+#define ASTER_API_APP_CONTINUE 0
+#define ASTER_API_APP_CLOSE    1
+#define ASTER_API_APP_ERROR   -1
+
+#define ASTER_API_KEY_F1     0x101
+#define ASTER_API_KEY_F2     0x102
+#define ASTER_API_KEY_UP     0x103
+#define ASTER_API_KEY_DOWN   0x104
+#define ASTER_API_KEY_LEFT   0x105
+#define ASTER_API_KEY_RIGHT  0x106
+
 #define ASTER_API_OK                0
 #define ASTER_API_ERR_INVALID      -1
 #define ASTER_API_ERR_NOT_FOUND    -2
@@ -50,6 +64,21 @@ typedef struct {
     u8 is_dir;
     u16 size;
 } aster_api_dirent_t;
+
+typedef struct {
+    u64 frame;
+    u64 ticks_now;
+    u64 dt_ticks;
+    int running;
+    u32 target_fps;
+} aster_api_app_state_t;
+
+typedef struct {
+    int (*initial)(aster_api_app_state_t *state, void *user);
+    int (*update)(aster_api_app_state_t *state, void *user);
+    int (*draw)(aster_api_app_state_t *state, void *user);
+    int (*closing)(aster_api_app_state_t *state, void *user);
+} aster_api_app_callbacks_t;
 
 typedef void (*aster_api_dirent_cb)(const aster_api_dirent_t *entry, void *user);
 
@@ -99,6 +128,15 @@ int aster_api_try_read_key(void);
 int aster_api_read_line(char *buffer, int max_len);
 
 /*
+ * Jednoduche render API pro VGA textovy framebuffer.
+ * render kresli vyplneny obdelnik, render_text zapisuje text na souradnice.
+ */
+int aster_api_render(int x, int y, int width, int height, u8 color);
+int aster_api_render_char(int x, int y, char ch, u8 fg, u8 bg);
+int aster_api_render_text(int x, int y, const char *text, u8 font_color, u8 back_color);
+int aster_api_render_border(int x, int y, int width, int height, u8 fg, u8 bg);
+
+/*
  * AsterFS API pokryvajici bezne operace nad soubory a adresari.
  * Textove helpery zajistuji nulovy terminator pri cteni textu.
  */
@@ -130,5 +168,13 @@ int aster_api_yield(void);
 usize aster_api_str_len(const char *text);
 int aster_api_str_equal(const char *a, const char *b);
 int aster_api_str_starts_with(const char *text, const char *prefix);
+
+/*
+ * Lifecycle runtime pro aplikace.
+ * App implementuje initial/update/draw/closing callbacky a runtime se stara
+ * o jednotny loop, frame counter a limitaci FPS.
+ */
+int aster_api_app_run(const aster_api_app_callbacks_t *callbacks, void *user, u32 target_fps);
+void aster_api_app_request_close(void);
 
 #endif
