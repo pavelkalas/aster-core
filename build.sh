@@ -11,6 +11,3 @@ make clean
 
 echo "[setup] build"
 make CROSS="$CROSS_PREFIX"
-
-echo "[setup] run"
-make run CROSS="$CROSS_PREFIX"
