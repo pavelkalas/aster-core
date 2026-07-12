@@ -21,6 +21,21 @@ static char g_history[KBD_HISTORY_MAX][KBD_HISTORY_LINE_MAX];
 static int g_history_count = 0;
 static int g_history_head = 0;
 static int g_ctrl_down = 0;
+static int g_shift_down = 0;
+
+static char apply_letter_case(char c) {
+    int upper = g_shift_down;
+
+    if (!upper) {
+        return c;
+    }
+
+    if (c >= 'a' && c <= 'z') {
+        return (char)(c - ('a' - 'A'));
+    }
+
+    return c;
+}
 
 static inline unsigned char inb(unsigned short port) {
     unsigned char ret;
@@ -103,6 +118,16 @@ int keyboard_try_read_key(void) {
         return -1;
     }
 
+    if (sc == 0x2A || sc == 0x36) {
+        g_shift_down = 1;
+        return -1;
+    }
+
+    if (sc == 0xAA || sc == 0xB6) {
+        g_shift_down = 0;
+        return -1;
+    }
+
     if (sc & 0x80) {
         return -1;
     }
@@ -123,7 +148,7 @@ int keyboard_try_read_key(void) {
     }
 
     if (sc < 128 && keymap[sc]) {
-        out = keymap[sc];
+        out = apply_letter_case(keymap[sc]);
         return out;
     }
 
