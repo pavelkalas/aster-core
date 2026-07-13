@@ -38,8 +38,6 @@
 #define ASTERFS_MAGIC      "ASTERFS1"
 #define ASTERFS_VERSION    1U
 
-#define ASTERFS_NODE_BYTES (ASTERFS_NAME_LEN + 1 + 2 + 1 + ASTERFS_DATA_LEN)
-#define ASTERFS_NODE_SECTORS (((ASTERFS_MAX_FILES * ASTERFS_NODE_BYTES) + 511) / 512)
 #define ASTERFS_DISK_START_LBA 1U
 
 typedef struct {
@@ -56,7 +54,12 @@ typedef struct {
     u16 size;
     u8 reserved;
     u8 data[ASTERFS_DATA_LEN];
-} asterfs_disk_node_t;
+} __attribute__((packed)) asterfs_disk_node_t;
+
+#define ASTERFS_NODE_BYTES ((usize)sizeof(asterfs_disk_node_t))
+#define ASTERFS_NODE_SECTORS (((ASTERFS_MAX_FILES * ASTERFS_NODE_BYTES) + 511) / 512)
+_Static_assert(sizeof(asterfs_disk_node_t) == (ASTERFS_NAME_LEN + 1 + 2 + 1 + ASTERFS_DATA_LEN),
+    "asterfs_disk_node_t layout mismatch");
 
 static asterfs_node_t nodes[ASTERFS_MAX_FILES];
 static int nodes_used = 0;
@@ -222,12 +225,16 @@ static void fs_reset_memory(void) {
     nodes_used = 0;
 }
 
-static void fs_encode_nodes(u8 *out) {
+static void fs_encode_nodes(void) {
     int i;
 
     for (i = 0; i < ASTERFS_MAX_FILES; ++i) {
         asterfs_disk_node_t d;
         usize off = (usize)i * ASTERFS_NODE_BYTES;
+
+        if (off + ASTERFS_NODE_BYTES > sizeof(g_nodes_blob)) {
+            break;
+        }
 
         aster_memset(&d, 0, sizeof(d));
         aster_memcpy(d.name, nodes[i].name, ASTERFS_NAME_LEN);
@@ -235,18 +242,22 @@ static void fs_encode_nodes(u8 *out) {
         d.size = nodes[i].size;
         aster_memcpy(d.data, nodes[i].data, ASTERFS_DATA_LEN);
 
-        aster_memcpy(out + off, &d, ASTERFS_NODE_BYTES);
+        aster_memcpy(g_nodes_blob + off, &d, ASTERFS_NODE_BYTES);
     }
 }
 
-static void fs_decode_nodes(const u8 *in) {
+static void fs_decode_nodes(void) {
     int i;
 
     for (i = 0; i < ASTERFS_MAX_FILES; ++i) {
         asterfs_disk_node_t d;
         usize off = (usize)i * ASTERFS_NODE_BYTES;
 
-        aster_memcpy(&d, in + off, ASTERFS_NODE_BYTES);
+        if (off + ASTERFS_NODE_BYTES > sizeof(g_nodes_blob)) {
+            break;
+        }
+
+        aster_memcpy(&d, g_nodes_blob + off, ASTERFS_NODE_BYTES);
 
         aster_memset(nodes[i].name, 0, ASTERFS_NAME_LEN);
         aster_memcpy(nodes[i].name, d.name, ASTERFS_NAME_LEN);
@@ -287,7 +298,7 @@ static int fs_flush_disk(void) {
         return -1;
     }
 
-    fs_encode_nodes(g_nodes_blob);
+    fs_encode_nodes();
     for (sector = 0; sector < ASTERFS_NODE_SECTORS; ++sector) {
         usize off = (usize)sector * 512;
         aster_memset(g_sector_buffer, 0, sizeof(g_sector_buffer));
@@ -337,7 +348,7 @@ static int fs_load_disk(void) {
         }
     }
 
-    fs_decode_nodes(g_nodes_blob);
+    fs_decode_nodes();
     if (super.nodes_used > ASTERFS_MAX_FILES) {
         nodes_used = ASTERFS_MAX_FILES;
     } else {
@@ -519,7 +530,10 @@ int asterfs_create_file(const char *name) {
     nodes[nodes_used].size = 0;
     nodes[nodes_used].is_dir = 0;
     ++nodes_used;
-    (void)fs_flush_disk();
+    if (fs_flush_disk() != 0) {
+        --nodes_used;
+        return -1;
+    }
     return 0;
 }
 
@@ -548,7 +562,10 @@ int asterfs_create_dir(const char *name) {
     nodes[nodes_used].size = 0;
     nodes[nodes_used].is_dir = 1;
     ++nodes_used;
-    (void)fs_flush_disk();
+    if (fs_flush_disk() != 0) {
+        --nodes_used;
+        return -1;
+    }
     return 0;
 }
 
@@ -570,7 +587,9 @@ int asterfs_remove_file(const char *name) {
     }
 
     --nodes_used;
-    (void)fs_flush_disk();
+    if (fs_flush_disk() != 0) {
+        return -1;
+    }
     return 0;
 }
 
@@ -603,7 +622,9 @@ int asterfs_remove_dir(const char *name) {
     }
 
     --nodes_used;
-    (void)fs_flush_disk();
+    if (fs_flush_disk() != 0) {
+        return -1;
+    }
     return 0;
 }
 
@@ -630,11 +651,28 @@ int asterfs_write_file(const char *name, const u8 *data, u16 len) {
         len = ASTERFS_DATA_LEN;
     }
 
-    aster_memset(nodes[idx].data, 0, ASTERFS_DATA_LEN);
-    aster_memcpy(nodes[idx].data, data, len);
-    nodes[idx].size = len;
-    (void)fs_flush_disk();
+    {
+        u8 old_data[ASTERFS_DATA_LEN];
+        u16 old_size = nodes[idx].size;
+
+        aster_memcpy(old_data, nodes[idx].data, ASTERFS_DATA_LEN);
+
+        aster_memset(nodes[idx].data, 0, ASTERFS_DATA_LEN);
+        aster_memcpy(nodes[idx].data, data, len);
+        nodes[idx].size = len;
+
+        if (fs_flush_disk() != 0) {
+            aster_memcpy(nodes[idx].data, old_data, ASTERFS_DATA_LEN);
+            nodes[idx].size = old_size;
+            return -1;
+        }
+    }
+
     return len;
+}
+
+int asterfs_sync(void) {
+    return fs_flush_disk();
 }
 
 int asterfs_read_file(const char *name, u8 *out, u16 max_len) {
