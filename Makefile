@@ -16,6 +16,11 @@ IMG := $(BUILD)/aster.img
 DATA_DISK := asterfs.img
 BRIDGE_IF ?= br0
 
+SYSAPP_SRCS := $(wildcard sysapps/*.c)
+SYSAPP_OBJS := $(patsubst sysapps/%.c,$(BUILD)/sysapps/%.o,$(SYSAPP_SRCS))
+SYSAPP_REGISTRY_SRC := $(BUILD)/kernel/sysapps_registry.c
+SYSAPP_REGISTRY_OBJ := $(BUILD)/kernel/sysapps_registry.o
+
 KERNEL_OBJS := \
 	$(BUILD)/arch/x86_64/entry.o \
 	$(BUILD)/arch/x86_64/gdt.o \
@@ -37,12 +42,14 @@ KERNEL_OBJS := \
 	$(BUILD)/drivers/timer.o \
 	$(BUILD)/drivers/storage.o \
 	$(BUILD)/apps/calc_app.o \
-	$(BUILD)/apps/tetris_app.o
+	$(BUILD)/apps/tetris_app.o \
+	$(SYSAPP_REGISTRY_OBJ) \
+	$(SYSAPP_OBJS)
 
 all: $(IMG)
 
 $(BUILD):
-	mkdir -p $(BUILD)/boot $(BUILD)/kernel $(BUILD)/arch/x86_64 $(BUILD)/drivers $(BUILD)/apps
+	mkdir -p $(BUILD)/boot $(BUILD)/kernel $(BUILD)/arch/x86_64 $(BUILD)/drivers $(BUILD)/apps $(BUILD)/sysapps
 
 $(BUILD)/boot/boot.bin: boot/boot.asm | $(BUILD)
 	$(AS) -f bin $< -o $@
@@ -63,6 +70,30 @@ $(BUILD)/drivers/%.o: drivers/%.c | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(BUILD)/apps/%.o: apps/%.c | $(BUILD)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILD)/sysapps/%.o: sysapps/%.c | $(BUILD)
+	mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -Dinit=sysapp_init_$* -c $< -o $@
+
+$(SYSAPP_REGISTRY_SRC): $(SYSAPP_SRCS) | $(BUILD)
+	mkdir -p $(dir $@)
+	@{ \
+		echo '#include "sysapps_runtime.h"'; \
+		for f in $(SYSAPP_SRCS); do \
+			n=$${f##*/}; n=$${n%.c}; \
+			echo "extern void sysapp_init_$${n}(void);"; \
+		done; \
+		echo 'const sysapp_entry_t g_sysapps[] = {'; \
+		for f in $(SYSAPP_SRCS); do \
+			n=$${f##*/}; n=$${n%.c}; \
+			echo "    {\"$${n}\", sysapp_init_$${n}},"; \
+		done; \
+		echo '    {0, 0}'; \
+		echo '};'; \
+	} > $@
+
+$(SYSAPP_REGISTRY_OBJ): $(SYSAPP_REGISTRY_SRC)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(BUILD)/kernel.elf: $(KERNEL_OBJS) linker.ld
