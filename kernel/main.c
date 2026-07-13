@@ -20,10 +20,12 @@
 #include "scheduler.h"
 #include "storage.h"
 #include "string.h"
+#include "sysapps_runtime.h"
 #include "syscall.h"
 #include "timer.h"
 
 void app_tetris_main(void);
+extern const sysapp_entry_t g_sysapps[];
 
 static char g_cwd[ASTERFS_NAME_LEN] = "/";
 static unsigned long g_timer_hz = 100UL;
@@ -63,6 +65,7 @@ static void auth_readline_plain(char *out, int max_len);
 static void auth_readline_secret(char *out, int max_len);
 static void auth_clear_users(void);
 static int auth_add_user(const char *name, const char *pass);
+static int run_sysapp_by_name(const char *name);
 static char g_fm_names[FM_MAX_ENTRIES][ASTERFS_NAME_LEN];
 static u8 g_fm_types[FM_MAX_ENTRIES];
 static u16 g_fm_sizes[FM_MAX_ENTRIES];
@@ -614,6 +617,24 @@ static int system_is_installed(void) {
     return asterfs_get_type(INSTALL_FLAG_FILE) == 0;
 }
 
+static int run_sysapp_by_name(const char *name) {
+    usize i;
+
+    if (!name || name[0] == '\0') {
+        return -1;
+    }
+
+    for (i = 0; g_sysapps[i].name; ++i) {
+        if (aster_strcmp(g_sysapps[i].name, name) == 0) {
+            g_sysapps[i].entry();
+            render_shell_statusbar();
+            return 0;
+        }
+    }
+
+    return -1;
+}
+
 static void cmd_setup_install(void) {
     static const char readme[] =
         "AsterOS base install\n"
@@ -804,6 +825,7 @@ static const char g_help_lines[][80] = {
     "edit filename         - editor (Ctrl+S, ESC)",
     "calc A op B           - vypocet (+ - * /)",
     "tetris                - testovaci hra nad app API",
+    "<sysapps nazvy>       - appka ze slozky sysapps",
     "echo text             - vypis textu",
     "ticks                 - pocet tiknuti casovace",
     "alloc N               - alokovat N bajtu",
@@ -2864,6 +2886,8 @@ static void shell_loop(void) {
             cmd_reboot();
         } else if (aster_strcmp(exec_cmd, "shutdown") == 0) {
             cmd_shutdown();
+        } else if (run_sysapp_by_name(exec_cmd) == 0) {
+            continue;
         } else {
             print_error("Neznamy prikaz. Zadej help.");
         }
