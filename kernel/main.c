@@ -578,11 +578,12 @@ static void ensure_aliases_file(void) {
 }
 
 static int fs_ensure_dir(const char *path) {
-    int t = asterfs_get_type(path);
+    int t;
 
     if (!path || path[0] == '\0') {
         return -1;
     }
+    t = asterfs_get_type(path);
     if (t == 1) {
         return 0;
     }
@@ -593,11 +594,12 @@ static int fs_ensure_dir(const char *path) {
 }
 
 static int fs_ensure_file_text(const char *path, const char *text) {
-    int t = asterfs_get_type(path);
+    int t;
 
     if (!path || !text || path[0] == '\0') {
         return -1;
     }
+    t = asterfs_get_type(path);
     if (t == 1) {
         return -1;
     }
@@ -613,13 +615,6 @@ static int system_is_installed(void) {
 }
 
 static void cmd_setup_install(void) {
-    static const char *dirs[] = {
-        "/etc",
-        "/home",
-        "/bin",
-        "/var",
-        "/tmp"
-    };
     static const char readme[] =
         "AsterOS base install\n"
         "--------------------\n"
@@ -637,7 +632,6 @@ static void cmd_setup_install(void) {
     char setup_pass[AUTH_PASS_LEN];
     char user_home[ASTERFS_NAME_LEN];
     usize p = 0;
-    usize i;
 
     aster_print("Setup: instalace systemu na AsterFS disk...\n");
 
@@ -661,16 +655,35 @@ static void cmd_setup_install(void) {
     }
 
     aster_memset(g_current_user, 0, sizeof(g_current_user));
-    aster_memcpy(g_current_user, setup_user, aster_strlen(setup_user));
+    p = aster_strlen(setup_user);
+    if (p >= sizeof(g_current_user)) {
+        p = sizeof(g_current_user) - 1;
+    }
+    aster_memcpy(g_current_user, setup_user, p);
 
-    for (i = 0; i < sizeof(dirs) / sizeof(dirs[0]); ++i) {
-        if (fs_ensure_dir(dirs[i]) != 0) {
-            printk("Setup error: nelze pripravit slozku %s\n", dirs[i]);
-            return;
-        }
+    if (fs_ensure_dir("/etc") != 0) {
+        print_error("Setup error: nelze pripravit slozku /etc");
+        return;
+    }
+    if (fs_ensure_dir("/home") != 0) {
+        print_error("Setup error: nelze pripravit slozku /home");
+        return;
+    }
+    if (fs_ensure_dir("/bin") != 0) {
+        print_error("Setup error: nelze pripravit slozku /bin");
+        return;
+    }
+    if (fs_ensure_dir("/var") != 0) {
+        print_error("Setup error: nelze pripravit slozku /var");
+        return;
+    }
+    if (fs_ensure_dir("/tmp") != 0) {
+        print_error("Setup error: nelze pripravit slozku /tmp");
+        return;
     }
 
     if (setup_user[0]) {
+        p = 0;
         p = append_text(user_home, p, sizeof(user_home), "/home/");
         p = append_text(user_home, p, sizeof(user_home), setup_user);
         user_home[p] = '\0';
