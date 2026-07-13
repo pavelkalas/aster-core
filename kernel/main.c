@@ -1735,12 +1735,9 @@ static void run_file_manager(void) {
     int last_selected = -1;
     int top = 0;
     unsigned long last_anim = timer_ticks();
-    unsigned long idle_spin = 0;
-    unsigned long step_ticks = g_timer_hz / 5UL;
-
-    if (step_ticks == 0) {
-        step_ticks = 1;
-    }
+    unsigned long tick_counter = 0;
+    unsigned long step_ticks = 1;
+    unsigned long shift_interval = 10;
 
     aster_memset(fm_cwd, 0, sizeof(fm_cwd));
     aster_memcpy(fm_cwd, g_cwd, aster_strlen(g_cwd));
@@ -1784,29 +1781,24 @@ static void run_file_manager(void) {
 
         for (;;) {
             unsigned long delta;
-            unsigned long steps;
             key = keyboard_try_read_key();
             now = timer_ticks();
 
+            // Timer-based posun - každých N tiků
             if (now > last_anim) {
                 delta = now - last_anim;
                 if (delta >= step_ticks) {
-                    steps = delta / step_ticks;
-                    g_status_marquee_offset += (usize)steps;
-                    last_anim += steps * step_ticks;
-                    render_shell_statusbar();
+                    tick_counter += delta;
+                    if (tick_counter >= shift_interval) {
+                        g_status_marquee_offset++;
+                        tick_counter = 0;
+                        render_shell_statusbar();
+                    }
+                    last_anim = now;
                 }
             }
 
-            ++idle_spin;
-            if (idle_spin >= 230000UL) {
-                idle_spin = 0;
-                ++g_status_marquee_offset;
-                render_shell_statusbar();
-            }
-
             if (key != -1) {
-                idle_spin = 0;
                 break;
             }
 
@@ -2191,11 +2183,12 @@ static void shell_edit_file(const char *path) {
     usize len;
     usize pos;
     unsigned long last_anim = timer_ticks();
-    unsigned long idle_spin = 0;
-    unsigned long step_ticks = g_timer_hz / 5UL;
+    unsigned long tick_counter = 0;
+    unsigned long step_ticks = 1;
+    unsigned long shift_interval = 10;
     char title[120];
     usize tp = 0;
-    const char *prefix = "Upravovani souboru ";
+    const char *prefix = "* Upravovani souboru:";
     const char *base = path_basename(path);
     usize bi = 0;
 
@@ -2232,32 +2225,25 @@ static void shell_edit_file(const char *path) {
         int key;
         unsigned long now = timer_ticks();
         unsigned long delta;
-        unsigned long steps;
         key = keyboard_try_read_key();
 
         if (now > last_anim) {
             delta = now - last_anim;
             if (delta >= step_ticks) {
-                steps = delta / step_ticks;
-                g_status_marquee_offset += (usize)steps;
-                last_anim += steps * step_ticks;
-                render_shell_statusbar();
+                tick_counter += delta;
+                if (tick_counter >= shift_interval) {
+                    g_status_marquee_offset++;
+                    tick_counter = 0;
+                    render_shell_statusbar();
+                }
+                last_anim = now;
             }
-        }
-
-        ++idle_spin;
-        if (idle_spin >= 230000UL) {
-            idle_spin = 0;
-            ++g_status_marquee_offset;
-            render_shell_statusbar();
         }
 
         if (key == -1) {
             __asm__ volatile ("pause");
             continue;
         }
-
-        idle_spin = 0;
 
         if (key == 27) {
             g_status_marquee_only = 0;
