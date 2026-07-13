@@ -11,8 +11,8 @@
 jmp start2
 
 %include "disk.asm"
+%include "kernel_sectors.inc"
 
-KERNEL_SECTORS     equ 256
 KERNEL_START_LBA   equ 17
 KERNEL_LOAD_SEG    equ 0x1000
 PML4_ADDR          equ 0x00070000
