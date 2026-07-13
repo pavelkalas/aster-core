@@ -82,7 +82,7 @@ $(DATA_DISK):
 	test -f $(DATA_DISK) || dd if=/dev/zero of=$(DATA_DISK) bs=512 count=8192
 
 run: $(IMG) $(DATA_DISK)
-	qemu-system-x86_64 -no-reboot -no-shutdown -drive format=raw,file=$(IMG),if=ide,index=0 -drive format=raw,file=$(DATA_DISK),if=ide,index=1
+	qemu-system-x86_64 -drive format=raw,file=$(IMG),if=ide,index=0 -drive format=raw,file=$(DATA_DISK),if=ide,index=1
 
 clean:
 	rm -rf $(BUILD)
