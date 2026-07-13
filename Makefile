@@ -28,6 +28,7 @@ KERNEL_OBJS := \
 	$(BUILD)/arch/x86_64/interrupts.o \
 	$(BUILD)/arch/x86_64/cpu.o \
 	$(BUILD)/kernel/main.o \
+	$(BUILD)/kernel/bootlog.o \
 	$(BUILD)/kernel/panic.o \
 	$(BUILD)/kernel/printk.o \
 	$(BUILD)/kernel/memory.o \
@@ -54,8 +55,16 @@ $(BUILD):
 $(BUILD)/boot/boot.bin: boot/boot.asm | $(BUILD)
 	$(AS) -f bin $< -o $@
 
-$(BUILD)/boot/stage2.bin: boot/stage2.asm boot/disk.asm | $(BUILD)
-	$(AS) -I boot/ -f bin $< -o $@
+$(BUILD)/boot/kernel_sectors.inc: $(BUILD)/kernel.bin | $(BUILD)
+	mkdir -p $(dir $@)
+	@size=$$(wc -c < $(BUILD)/kernel.bin); \
+	sectors=$$(( (size + 511) / 512 )); \
+	if [ $$sectors -lt 1 ]; then sectors=1; fi; \
+	echo "; auto-generated from build/kernel.bin" > $@; \
+	echo "KERNEL_SECTORS     equ $$sectors" >> $@
+
+$(BUILD)/boot/stage2.bin: boot/stage2.asm boot/disk.asm $(BUILD)/boot/kernel_sectors.inc | $(BUILD)
+	$(AS) -I boot/ -I $(BUILD)/boot/ -f bin $< -o $@
 
 $(BUILD)/arch/x86_64/%.o: arch/x86_64/%.asm | $(BUILD)
 	$(AS) -f elf64 $< -o $@
