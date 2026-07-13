@@ -12,6 +12,7 @@
  */
 
 #include "cpu.h"
+#include "bootlog.h"
 #include "display.h"
 #include "drivers.h"
 #include "memory.h"
@@ -65,6 +66,8 @@ static void auth_readline_plain(char *out, int max_len);
 static void auth_readline_secret(char *out, int max_len);
 static void auth_clear_users(void);
 static int auth_add_user(const char *name, const char *pass);
+static void cmd_reboot(void);
+static int installer_detach_medium(void);
 static int run_sysapp_by_name(const char *name);
 static char g_fm_names[FM_MAX_ENTRIES][ASTERFS_NAME_LEN];
 static u8 g_fm_types[FM_MAX_ENTRIES];
@@ -467,7 +470,7 @@ static void boot_step_finish(const char *label, const char *state, u8 state_colo
 }
 
 static void boot_step_ok(const char *label) {
-    boot_step_finish(label, "OK", 0x0A);
+    boot_step_finish(label, "Uspesne", 0x0A);
 }
 
 static void boot_step_skip(const char *label) {
@@ -635,6 +638,15 @@ static int run_sysapp_by_name(const char *name) {
     return -1;
 }
 
+static int installer_detach_medium(void) {
+    if (asterfs_sync() != 0) {
+        return -1;
+    }
+
+    /* Removable install medium is not controllable in current runtime. */
+    return -1;
+}
+
 static void cmd_setup_install(void) {
     static const char readme[] =
         "AsterOS base install\n"
@@ -652,6 +664,7 @@ static void cmd_setup_install(void) {
     char setup_user[AUTH_NAME_LEN];
     char setup_pass[AUTH_PASS_LEN];
     char user_home[ASTERFS_NAME_LEN];
+    int k;
     usize p = 0;
 
     aster_print("Setup: instalace systemu na AsterFS disk...\n");
@@ -668,19 +681,6 @@ static void cmd_setup_install(void) {
 
     aster_print("Setup heslo (prazdne = auto-login): ");
     auth_readline_secret(setup_pass, sizeof(setup_pass));
-
-    auth_clear_users();
-    if (auth_add_user(setup_user, setup_pass) != 0 || auth_save_users() != 0) {
-        print_error("Setup error: nelze ulozit uzivatele");
-        return;
-    }
-
-    aster_memset(g_current_user, 0, sizeof(g_current_user));
-    p = aster_strlen(setup_user);
-    if (p >= sizeof(g_current_user)) {
-        p = sizeof(g_current_user) - 1;
-    }
-    aster_memcpy(g_current_user, setup_user, p);
 
     if (fs_ensure_dir("/etc") != 0) {
         print_error("Setup error: nelze pripravit slozku /etc");
@@ -735,9 +735,43 @@ static void cmd_setup_install(void) {
         return;
     }
 
+    auth_clear_users();
+    if (auth_add_user(setup_user, setup_pass) != 0 || auth_save_users() != 0) {
+        print_error("Setup error: nelze ulozit uzivatele");
+        return;
+    }
+
+    aster_memset(g_current_user, 0, sizeof(g_current_user));
+    p = aster_strlen(setup_user);
+    if (p >= sizeof(g_current_user)) {
+        p = sizeof(g_current_user) - 1;
+    }
+    aster_memcpy(g_current_user, setup_user, p);
+
     ensure_aliases_file();
 
     aster_print("Setup complete: system nainstalovan na disk\n");
+    aster_print("Restartovat system nyni? [y/N] ");
+    k = keyboard_read_key();
+    if (k != '\n') {
+        display_putc((char)k);
+    }
+    display_putc('\n');
+
+    if (k == 'y' || k == 'Y') {
+        if (installer_detach_medium() != 0) {
+            bootlog_error("Nelze odpojit instalacni medium, stiskni ENTER pro pokracovani");
+            for (;;) {
+                int kk = keyboard_read_key();
+                if (kk == '\n') {
+                    break;
+                }
+            }
+        }
+        
+        timer_sleep_ms(1500);
+        cmd_reboot();
+    }
 }
 
 static void show_welcome_banner(void) {
@@ -1149,6 +1183,7 @@ static void auth_login_screen(void) {
         auth_readline_plain(name, sizeof(name));
         aster_print("Heslo: ");
         auth_readline_secret(pass, sizeof(pass));
+        timer_sleep_ms(1000);
 
         {
             int idx = auth_find_user(name);
@@ -1159,8 +1194,8 @@ static void auth_login_screen(void) {
             }
         }
 
-        print_error("Spatny login nebo heslo");
-        timer_sleep_ms(1000);
+        print_error("Spatny login nebo heslo, zkus to znovu...");
+        timer_sleep_ms(4000);
     }
 }
 
@@ -2416,7 +2451,34 @@ static void show_calc_ui(long a, long b, char op, long r) {
 }
 
 static void cmd_reboot(void) {
-    aster_print("Reboot...\n");
+    display_clear();
+    display_set_color(0x0F, 0x00);
+    aster_print("System restart sequence\n\n");
+
+    boot_step_begin("Stopping user session");
+    aster_memset(g_current_user, 0, sizeof(g_current_user));
+    boot_step_ok("Stopping user session");
+
+    boot_step_begin("Unloading modules");
+    keyboard_set_refresh_callback(0, 0);
+    boot_step_ok("Unloading modules");
+
+    boot_step_begin("Freeing memory");
+    g_status_marquee_only = 0;
+    status_clear_marquee();
+    status_clear_left_hint();
+    boot_step_ok("Freeing memory");
+
+    boot_step_begin("Syncing filesystems");
+    if (asterfs_sync() == 0) {
+        boot_step_ok("Syncing filesystems");
+    } else {
+        boot_step_finish("Syncing filesystems", "CHYBA", 0x0C);
+    }
+
+    timer_sleep_ms(2000);
+
+    boot_step_begin("Issuing hardware reset");
     __asm__ volatile ("cli");
 
     if (kbc_wait_input_clear()) {
@@ -2897,21 +2959,56 @@ static void shell_loop(void) {
 void kmain(void) {
     display_init();
 
+    boot_step_begin("Serial ovladac");
     serial_init();
     if (serial_is_ready()) {
-        printk("[serial] COM1 initialized\n");
+        boot_step_ok("Serial ovladac");
+    } else {
+        boot_step_skip("Serial ovladac");
     }
 
+    boot_step_begin("CPU jadro");
     cpu_init();
+    boot_step_ok("CPU jadro");
+
+    boot_step_begin("Spravce pameti nacten");
     memory_init();
+    boot_step_ok("Spravce pameti nacten");
+
+    boot_step_begin("Spravce procesu");
     process_init();
+    boot_step_ok("Spravce procesu");
+
+    boot_step_begin("Planovac");
     scheduler_init();
+    boot_step_ok("Planovac");
+
+    boot_step_begin("Vrstva syscalls");
     syscall_init();
+    boot_step_ok("Vrstva syscalls");
+
+    boot_step_begin("Klavesnicovy ovladac");
     keyboard_init();
+    boot_step_ok("Klavesnicovy ovladac");
+
+    boot_step_begin("Casovac");
     timer_init((unsigned int)g_timer_hz);
+    boot_step_ok("Casovac");
+
+    boot_step_begin("Obnova shellu");
     keyboard_set_refresh_callback(shell_status_refresh_callback, g_timer_hz ? g_timer_hz : 100UL);
+    boot_step_ok("Obnova shellu");
+
+    boot_step_begin("Diskovy ovladac");
     storage_init();
+    boot_step_ok("Diskovy ovladac");
+
+    boot_step_begin("Preruseni");
     interrupts_init();
+    boot_step_ok("Preruseni");
+
+    aster_print("\nBoot sekvence dokoncena\n");
+    timer_sleep_ms(1500);
 
     for (;;) {
         auth_login_screen();
