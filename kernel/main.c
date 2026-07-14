@@ -348,46 +348,6 @@ static void boot_splash_push_log(const char *text) {
     boot_splash_render_log();
 }
 
-static void boot_splash_begin(unsigned int total_steps) {
-    const usize bar_w = 34;
-    usize i;
-    char bar[36];
-
-    if (total_steps == 0) {
-        total_steps = 1;
-    }
-
-    g_boot_splash_active = 1;
-    g_boot_splash_steps_total = total_steps;
-    g_boot_splash_steps_done = 0;
-    g_boot_splash_log_count = 0;
-    aster_memset(g_boot_splash_log, 0, sizeof(g_boot_splash_log));
-
-    display_set_color(0x0F, 0x00);
-    display_clear();
-
-    display_set_color(0x0F, 0x01);
-    display_write_at(6, 18, "+------------------------------------------+", 0x0F, 0x01);
-    display_write_at(7, 18, "|               ASTEROS CORE               |", 0x0F, 0x01);
-    display_write_at(8, 18, "|          booting user environment        |", 0x0F, 0x01);
-    display_write_at(9, 18, "+------------------------------------------+", 0x0F, 0x01);
-    display_set_color(0x0F, 0x00);
-
-    display_write_at(12, 20, "Loading modules...", 0x0F, 0x00);
-
-    for (i = 0; i < bar_w; ++i) {
-        bar[i] = '-';
-    }
-    bar[bar_w] = '\0';
-
-    display_write_at(18, 20, "[", 0x0E, 0x00);
-    display_write_at(18, 21, bar, 0x0A, 0x00);
-    display_write_at(18, 21 + bar_w, "]", 0x0E, 0x00);
-    display_write_at(19, 34, "0%", 0x0F, 0x00);
-
-    boot_splash_render_log();
-}
-
 static void boot_splash_update(const char *label, const char *state, u8 state_color) {
     const usize bar_w = 34;
     char bar[36];
@@ -435,10 +395,6 @@ static void boot_splash_update(const char *label, const char *state, u8 state_co
 
     display_write_at(19, 34, "    ", 0x0F, 0x00);
     display_write_at(19, 34, pct, 0x0F, 0x00);
-}
-
-static void boot_splash_end(void) {
-    g_boot_splash_active = 0;
 }
 
 static void boot_step_begin(const char *label) {
@@ -774,18 +730,6 @@ static void cmd_setup_install(void) {
     }
 }
 
-static void show_welcome_banner(void) {
-    display_set_color(0x0F, 0x01);
-    aster_print("\n");
-    aster_print("========================================\n");
-    aster_print("            ASTEROS KERNEL              \n");
-    aster_print("           Autor: Pavel Kalas           \n");
-    aster_print("                Rok: 2026               \n");
-    aster_print("========================================\n");
-    aster_print("\n");
-    display_set_color(0x0F, 0x00);
-}
-
 static void show_aster_banner(const char *subtitle) {
     display_set_color(0x0F, 0x01);
     aster_print("+------------------------------------------------+");
@@ -1117,37 +1061,6 @@ static int auth_find_autologin_user(void) {
         }
     }
     return -1;
-}
-
-static void auth_first_setup_if_needed(void) {
-    char name[AUTH_NAME_LEN];
-    char pass[AUTH_PASS_LEN];
-
-    if (auth_load_users() == 0 && g_user_count > 0) {
-        return;
-    }
-
-    display_clear();
-    aster_print("=== First Start Setup ===\n");
-    aster_print("Vytvor prvniho uzivatele.\n");
-
-    for (;;) {
-        aster_print("Uzivatel: ");
-        auth_readline_plain(name, sizeof(name));
-        if (name[0] == '\0') {
-            print_error("Uzivatel nesmi byt prazdny");
-            continue;
-        }
-        break;
-    }
-
-    aster_print("Heslo (prazdne = auto-login): ");
-    auth_readline_secret(pass, sizeof(pass));
-
-    auth_clear_users();
-    if (auth_add_user(name, pass) != 0 || auth_save_users() != 0) {
-        print_error("Chyba ulozeni prvniho uzivatele");
-    }
 }
 
 static void auth_login_screen(void) {
@@ -2517,14 +2430,6 @@ static void shell_processes(void) {
     for (i = 0; i < count; ++i) {
         print_process_line(&table[i]);
     }
-}
-
-static void demo_task_a(void) {
-    printk("[taskA] start\n");
-}
-
-static void demo_task_b(void) {
-    printk("[taskB] start\n");
 }
 
 static void shell_loop(void) {

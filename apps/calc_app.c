@@ -50,7 +50,6 @@ void app_calc_main(void) {
     char n1[16];
     char n2[16];
     char nr[16];
-    char line[80];
     int a = 24;
     int b = 18;
     int r = a + b;
@@ -59,7 +58,6 @@ void app_calc_main(void) {
     append_number(n2, b);
     append_number(nr, r);
 
-    line[0] = '\0';
     aster_api_print("[calc_app] start\n");
     aster_api_print("[calc_app] ");
     aster_api_print(n1);
