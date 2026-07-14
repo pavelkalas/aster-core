@@ -24,6 +24,7 @@
 #include "sysapps_runtime.h"
 #include "syscall.h"
 #include "timer.h"
+#include "int.h"
 
 void app_tetris_main(void);
 extern const sysapp_entry_t g_sysapps[];
@@ -1151,49 +1152,6 @@ static char *next_token(char **cursor) {
 
     *cursor = p;
     return start;
-}
-
-static unsigned long parse_u32(const char *s, int *ok) {
-    unsigned long value = 0;
-    *ok = 0;
-
-    if (!s || *s == '\0') {
-        return 0;
-    }
-
-    while (*s) {
-        if (*s < '0' || *s > '9') {
-            return 0;
-        }
-
-        value = value * 10UL + (unsigned long)(*s - '0');
-        ++s;
-    }
-
-    *ok = 1;
-    return value;
-}
-
-static long parse_i32(const char *s, int *ok) {
-    int sign = 1;
-    unsigned long v;
-
-    if (!s || *s == '\0') {
-        *ok = 0;
-        return 0;
-    }
-
-    if (*s == '-') {
-        sign = -1;
-        ++s;
-    }
-
-    v = parse_u32(s, ok);
-    if (!*ok) {
-        return 0;
-    }
-
-    return (long)v * (long)sign;
 }
 
 static void resolve_path(const char *name, char *out, usize out_size) {
