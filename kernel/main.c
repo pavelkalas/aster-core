@@ -195,7 +195,7 @@ static void render_shell_statusbar(void) {
     right[0] = '\0';
     middle[0] = '\0';
 
-    display_fill_row(SCREEN_H - 1, ' ', 0x0E, 0x08);
+    display_fill_row(SCREEN_H - 1, ' ', 0, 0);
 
     if (!g_status_marquee_only) {
         usize p = 0;
@@ -206,9 +206,9 @@ static void render_shell_statusbar(void) {
         p = append_text(left, p, sizeof(left), " pouzite=");
         p = append_uint(left, p, sizeof(left), (unsigned int)used);
         (void)p;
-        display_write_at(SCREEN_H - 1, 0, left, 0x0E, 0x08);
+        display_write_at(SCREEN_H - 1, 0, left, 0x0E, 0);
     } else if (g_status_left_hint_on) {
-        display_write_at(SCREEN_H - 1, 0, g_status_left_hint, 0x0E, 0x08);
+        display_write_at(SCREEN_H - 1, 0, g_status_left_hint, 0x0E, 0);
         llen = 0;
         while (g_status_left_hint[llen]) {
             ++llen;
@@ -255,13 +255,13 @@ static void render_shell_statusbar(void) {
             middle_start = llen + 1;
         }
         if (middle_start + mlen + 1 < SCREEN_W) {
-            display_write_at(SCREEN_H - 1, middle_start, middle, 0x0E, 0x08);
+            display_write_at(SCREEN_H - 1, middle_start, middle, 0x0E, 0);
         }
     }
 
     if (!g_status_marquee_only) {
         right_start = (rlen < SCREEN_W) ? (SCREEN_W - rlen) : 0;
-        display_write_at(SCREEN_H - 1, right_start, right, 0x0E, 0x08);
+        display_write_at(SCREEN_H - 1, right_start, right, 0x0E, 0);
     }
 
     if (save_row >= SCREEN_H - 1) {
@@ -401,14 +401,16 @@ static void boot_step_begin(const char *label) {
     if (g_boot_splash_active) {
         char log_line[56];
         usize p = 0;
-        p = append_text(log_line, p, sizeof(log_line), "[ ... ] ");
+        p = append_text(log_line, p, sizeof(log_line), "[ *** ] ");
         p = append_text(log_line, p, sizeof(log_line), label ? label : "unknown");
         log_line[p] = '\0';
         boot_splash_push_log(log_line);
         return;
     }
     display_set_color(0x0F, 0x00);
-    printk("[ ... ] %s", label);
+    printk("[ *** ] %s", label);
+
+    timer_sleep_ms(100);
 }
 
 static void boot_step_finish(const char *label, const char *state, u8 state_color) {
@@ -426,7 +428,7 @@ static void boot_step_finish(const char *label, const char *state, u8 state_colo
 }
 
 static void boot_step_ok(const char *label) {
-    boot_step_finish(label, "Uspesne", 0x0A);
+    boot_step_finish(label, "Okej", 0x0A);
 }
 
 static void boot_step_skip(const char *label) {
@@ -605,16 +607,16 @@ static int installer_detach_medium(void) {
 
 static void cmd_setup_install(void) {
     static const char readme[] =
-        "AsterOS base install\n"
+        "aster-core base install\n"
         "--------------------\n"
         "System byl nainstalovan prikazem setup.\n"
         "Pro napovedu pouzij: help\n"
-        "Aliasy upravis v: /.aliases\n";
+        "Aliasy upravis v: /.aliases pomoci edit /.aliases\n";
     static const char motd[] =
-        "Welcome to AsterOS core v0.1\n"
+        "Welcome to aster-core v0.1\n"
         "Type 'help' for commands.\n";
     static const char profile[] =
-        "echo Welcome in AsterOS\n";
+        "echo Welcome in aster-core\n";
     static const char installed[] =
         "installed=1\n";
     char setup_user[AUTH_NAME_LEN];
@@ -731,17 +733,9 @@ static void cmd_setup_install(void) {
 }
 
 static void show_aster_banner(const char *subtitle) {
-    display_set_color(0x0F, 0x01);
-    aster_print("+------------------------------------------------+");
-    aster_print("\n");
-    aster_print("|                 AsterOS core v0.1              |");
-    aster_print("\n");
-    aster_print("|                author: Pavel Kalas             |");
-    aster_print("\n");
-    aster_print("|               text mode shell system           |");
-    aster_print("\n");
-    aster_print("+------------------------------------------------+");
-    aster_print("\n");
+    display_set_color(0x08, 0x00);
+    aster_print("[aster-core v0.11] Copyright (c) 2026 Pavel Kalas\n\n");
+
     display_set_color(0x0F, 0x00);
 
     if (subtitle && subtitle[0]) {
@@ -796,10 +790,8 @@ static const char g_help_lines[][80] = {
     "copfile src dst       - kopie souboru",
     "cat|read filename     - obsah souboru",
     "write filename text   - zapis textu",
-    "setup                 - instalace systemu na disk",
-    "asrun filename        - spustit AsterScript",
+    "install                 - instalace systemu na disk",
     "fm                    - file manager",
-    "./filename            - C-like script printf",
     "edit filename         - editor (Ctrl+S, ESC)",
     "calc A op B           - vypocet (+ - * /)",
     "tetris                - testovaci hra nad app API",
@@ -811,8 +803,7 @@ static const char g_help_lines[][80] = {
     "passwdch [user]       - zmeni heslo uzivatele",
     "exit                  - odhlaseni do loginu",
     "reboot                - restart systemu",
-    "shutdown|halt         - zastavit system",
-    "aliasy                - uprav v /.aliases"
+    "shutdown              - zastavit system",
 };
 
 static void shell_help_page(unsigned int page) {
@@ -1575,14 +1566,14 @@ static void fm_preview_file(const char *path) {
 static void fm_draw(const char *cwd, int selected, int top) {
     int i;
 
-    display_set_color(0x0E, 0x08);
+    display_set_color(0x0E, 0);
     display_clear();
-    display_set_color(0x07, 0x01);
-    printk(" ASTER FILE MANAGER | path: %s ", cwd);
+    display_set_color(0x07, 0);
+    printk(" File manager | path: %s ", cwd);
 
-    display_set_color(0x0E, 0x08);
+    display_set_color(0x0E, 0);
     aster_print("\n");
-    aster_print(" up/down=scroll, enter=open, e=edit, d=delete, backspace=up, q=quit \n\n");
+    aster_print(" Keymap: U/DOWN=scroll, ENTER=open, E=edit, D=delete, BACKSPACE=up, Q=quit \n\n");
 
     for (i = 0; i < FM_VIEW_ROWS; ++i) {
         int idx = top + i;
@@ -2067,7 +2058,7 @@ static void editor_redraw(const char *path, const char *buf, usize len, usize po
 
     display_set_color(0x0F, 0x00);
     display_clear();
-    display_set_color(0x0F, 0x01);
+    display_set_color(0x0F, 0x00);
     printk("EDITOR | file: %s | line: %u", path, (unsigned int)line);
     display_set_color(0x0F, 0x00);
     aster_print("\n\n");
@@ -2168,7 +2159,7 @@ static void shell_edit_file(const char *path) {
 
         if (key == 19) {
             (void)asterfs_write_file(path, (const u8 *)buf, (u16)len);
-            display_set_color(0x0A, 0x00);
+            display_set_color(0x0F, 0x00);
             aster_print("Saved\n");
             display_set_color(0x0F, 0x00);
             editor_redraw(path, buf, len, pos);
@@ -2477,7 +2468,7 @@ static void shell_loop(void) {
         } else if (aster_strcmp(exec_cmd, "helpall") == 0) {
             shell_help_all();
         } else if (aster_strcmp(exec_cmd, "info") == 0) {
-            printk("AsterOS Kernel | Autor: Pavel Kalas | Rok: 2026\n");
+            printk("aster-core | Autor: Pavel Kalas | Rok: 2026\n");
             printk("tick=%u\n", (unsigned int)timer_ticks());
         } else if (aster_strcmp(exec_cmd, "memory") == 0) {
             printk("total pages=%u free pages=%u\n", (unsigned int)memory_total_pages(), (unsigned int)memory_free_pages());
@@ -2592,18 +2583,6 @@ static void shell_loop(void) {
             }
 
             aster_print("OK\n");
-        } else if (aster_strcmp(exec_cmd, "makfile") == 0) {
-            arg1 = next_token(&cursor);
-            if (!arg1) {
-                print_error("Pouziti: makfile <filename>");
-            } else {
-                resolve_path(arg1, full, sizeof(full));
-                if (asterfs_create_file(full) == 0) {
-                    aster_print("OK\n");
-                } else {
-                    print_error("Chyba create file");
-                }
-            }
         } else if (aster_strcmp(exec_cmd, "remfile") == 0) {
             arg1 = next_token(&cursor);
             if (!arg1) {
@@ -2694,19 +2673,11 @@ static void shell_loop(void) {
                 }
             }
             print_exec_profile((const void *)asterfs_write_file, t0);
-        } else if (aster_strcmp(exec_cmd, "setup") == 0) {
+        } else if (aster_strcmp(exec_cmd, "install") == 0) {
             if (system_is_installed()) {
-                print_error("Neznamy prikaz. Zadej help.");
+                print_error("Neznamy prikaz. Zadej help.\n");
             } else {
                 cmd_setup_install();
-            }
-        } else if (aster_strcmp(exec_cmd, "asrun") == 0) {
-            arg1 = next_token(&cursor);
-            if (!arg1) {
-                print_error("Pouziti: asrun <filename>");
-            } else {
-                resolve_path(arg1, full, sizeof(full));
-                run_aster_script(full);
             }
         } else if (aster_strcmp(exec_cmd, "fm") == 0) {
             run_file_manager();
@@ -2718,60 +2689,6 @@ static void shell_loop(void) {
                 resolve_path(arg1, full, sizeof(full));
                 shell_edit_file(full);
             }
-        } else if (aster_strcmp(exec_cmd, "calc") == 0) {
-            int oka;
-            int okb;
-            long a;
-            long b;
-            long r = 0;
-            char op;
-            char *arg3;
-            unsigned long t0 = timer_ticks();
-            unsigned long calc_delta_ticks = 0;
-
-            arg1 = next_token(&cursor);
-            arg2 = next_token(&cursor);
-            arg3 = next_token(&cursor);
-
-            if (!arg1 || !arg2 || !arg3 || aster_strlen(arg2) != 1) {
-                print_error("Pouziti: calc <A> <op> <B>");
-            } else {
-                a = parse_i32(arg1, &oka);
-                b = parse_i32(arg3, &okb);
-                op = arg2[0];
-
-                if (!oka || !okb) {
-                    print_error("Chyba: A/B musi byt cisla");
-                } else {
-                    if (op == '+') r = a + b;
-                    else if (op == '-') r = a - b;
-                    else if (op == '*') r = a * b;
-                    else if (op == '/') {
-                        if (b == 0) {
-                            print_error("Chyba: deleni nulou");
-                            print_exec_profile((const void *)show_calc_ui, t0);
-                            continue;
-                        }
-                        r = a / b;
-                    } else {
-                        print_error("Operator musi byt + - * /");
-                        print_exec_profile((const void *)show_calc_ui, t0);
-                        continue;
-                    }
-
-                    calc_delta_ticks = timer_ticks() - t0;
-                    show_calc_ui(a, b, op, r);
-                }
-            }
-
-            if (calc_delta_ticks != 0) {
-                print_exec_profile_ticks((const void *)show_calc_ui, calc_delta_ticks);
-            } else {
-                print_exec_profile((const void *)show_calc_ui, t0);
-            }
-        } else if (aster_strcmp(exec_cmd, "tetris") == 0) {
-            app_tetris_main();
-            render_shell_statusbar();
         } else if (aster_strcmp(exec_cmd, "alloc") == 0) {
             int ok;
             unsigned long n;
@@ -2842,7 +2759,7 @@ static void shell_loop(void) {
         } else if (run_sysapp_by_name(exec_cmd) == 0) {
             continue;
         } else {
-            print_error("Neznamy prikaz. Zadej help.");
+            print_error("Neznamy prikaz. Zadej help.\n");
         }
     }
 }
@@ -2899,7 +2816,7 @@ void kmain(void) {
     boot_step_ok("Preruseni");
 
     aster_print("\nBoot sekvence dokoncena\n");
-    timer_sleep_ms(1500);
+    timer_sleep_ms(200);
 
     for (;;) {
         auth_login_screen();
@@ -2908,11 +2825,13 @@ void kmain(void) {
         if (system_is_installed()) {
             show_aster_banner("Shell");
         } else {
-            show_aster_banner("Live shell");
-            aster_print("Live mode: bez hesla\n");
-            aster_print("Pro instalaci na disk spust: setup\n");
+            display_set_color(0x07, 0x00);
+            aster_print("[aster-core v0.11] Copyright (c) 2026 Pavel Kalas\n\n");
+            display_set_color(0x0E, 0x00);
+            aster_print("Pro instalaci na disk spust prikaz: install\n");
+            display_set_color(0x0F, 0);
         }
-        aster_print("Pro zobrazeni prikazu pouzij 'help'\n");
+        aster_print("Pro zobrazeni prikazu pouzij 'help'\n\n");
         shell_loop();
     }
 }
