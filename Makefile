@@ -37,6 +37,7 @@ KERNEL_OBJS := \
 	$(BUILD)/kernel/syscall.o \
 	$(BUILD)/kernel/aster_api.o \
 	$(BUILD)/kernel/string.o \
+	$(BUILD)/kernel/int.o \
 	$(BUILD)/drivers/display.o \
 	$(BUILD)/drivers/keyboard.o \
 	$(BUILD)/drivers/serial.o \
