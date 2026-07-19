@@ -1,6 +1,6 @@
-# AsterOS Core
+# aster-core
 
-První a zároveň poslední veřejná verze (`v0.1`) kernelu pro můj vlastní operační systém **AsterOS**.
+Aktuální verze (`v0.11`)
 
 Projekt vznikl jako pokus napsat vlastní operační systém od nuly. Podařilo se vytvořit základ kernelu a připravit strukturu projektu, ale vývoj jsem nakonec zastavil. Je dost nepravděpodobné, že se k němu ještě někdy vrátím.
 
@@ -21,6 +21,8 @@ boot/           Bootovací kód
 drivers/        Ovladače
 include/        Hlavičkové soubory
 kernel/         Zdrojový kód kernelu
+apps/            Aplikace jadra systému
+sysapps/         Aplikace nezávislé na jádru
 ```
 
 ## Sestavení
