@@ -2,7 +2,7 @@
 
 Aktuální verze (`v0.11`)
 
-Projekt vznikl jako pokus napsat vlastní operační systém od nuly. Podařilo se vytvořit základ kernelu a připravit strukturu projektu, ale vývoj jsem nakonec zastavil. Je dost nepravděpodobné, že se k němu ještě někdy vrátím.
+Projekt vznikl jako pokus napsat vlastní operační systém od nuly. Podařilo se vytvořit základ kernelu a připravit strukturu projektu.
 
 ## Co obsahuje
 
