@@ -472,9 +472,25 @@ void storage_init(void) {
 }
 
 void asterfs_init(void) {
+    int retries = 8;
+
     fs_reset_memory();
 
-    disk_ready = (ata_probe_slave() == 0);
+    disk_ready = 0;
+    while (retries-- > 0) {
+        disk_ready = (ata_probe_slave() == 0);
+        if (disk_ready) {
+            break;
+        }
+        /* Pockej nez QEMU inicializuje slave disk */
+        {
+            volatile unsigned long i;
+            for (i = 0; i < 5000000UL; ++i) {
+                __asm__ volatile ("pause");
+            }
+        }
+    }
+
     if (!disk_ready) {
         return;
     }
