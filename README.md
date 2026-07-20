@@ -41,7 +41,3 @@ Po spuštění je možné systém nainstalovat příkazem install – vytvoří 
 * Desktopové prostředí (grafický výstup, okenní systém)
 * Další sysapps a uživatelské nástroje
 * Stabilizace souborového systému a podpora větších disků
-
-## Struktura projektu
-
-
