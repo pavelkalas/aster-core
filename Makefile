@@ -43,15 +43,13 @@ KERNEL_OBJS := \
 	$(BUILD)/drivers/serial.o \
 	$(BUILD)/drivers/timer.o \
 	$(BUILD)/drivers/storage.o \
-	$(BUILD)/apps/calc_app.o \
-	$(BUILD)/apps/tetris_app.o \
 	$(SYSAPP_REGISTRY_OBJ) \
 	$(SYSAPP_OBJS)
 
 all: $(IMG)
 
 $(BUILD):
-	mkdir -p $(BUILD)/boot $(BUILD)/kernel $(BUILD)/arch/x86_64 $(BUILD)/drivers $(BUILD)/apps $(BUILD)/sysapps
+	mkdir -p $(BUILD)/boot $(BUILD)/kernel $(BUILD)/arch/x86_64 $(BUILD)/drivers $(BUILD)/sysapps
 
 $(BUILD)/boot/boot.bin: boot/boot.asm | $(BUILD)
 	$(AS) -f bin $< -o $@
@@ -77,9 +75,6 @@ $(BUILD)/kernel/%.o: kernel/%.c | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(BUILD)/drivers/%.o: drivers/%.c | $(BUILD)
-	$(CC) $(CFLAGS) -c $< -o $@
-
-$(BUILD)/apps/%.o: apps/%.c | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(BUILD)/sysapps/%.o: sysapps/%.c | $(BUILD)
