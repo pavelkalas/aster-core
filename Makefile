@@ -28,6 +28,7 @@ KERNEL_OBJS := \
 	$(BUILD)/arch/x86_64/interrupts.o \
 	$(BUILD)/arch/x86_64/cpu.o \
 	$(BUILD)/kernel/main.o \
+	$(BUILD)/kernel/boot.o \
 	$(BUILD)/kernel/bootlog.o \
 	$(BUILD)/kernel/panic.o \
 	$(BUILD)/kernel/printk.o \
@@ -38,6 +39,13 @@ KERNEL_OBJS := \
 	$(BUILD)/kernel/aster_api.o \
 	$(BUILD)/kernel/string.o \
 	$(BUILD)/kernel/int.o \
+	$(BUILD)/kernel/auth.o \
+	$(BUILD)/kernel/shell.o \
+	$(BUILD)/kernel/editor.o \
+	$(BUILD)/kernel/fm.o \
+	$(BUILD)/kernel/fs_utils.o \
+	$(BUILD)/kernel/statusbar.o \
+	$(BUILD)/kernel/io_ports.o \
 	$(BUILD)/drivers/display.o \
 	$(BUILD)/drivers/keyboard.o \
 	$(BUILD)/drivers/serial.o \
