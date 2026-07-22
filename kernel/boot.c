@@ -89,7 +89,7 @@ void boot_sequence(void) {
     interrupts_init();
     boot_step_ok("Preruseni");
 
-    aster_print("\nBoot sekvence dokoncena\n");
-    timer_sleep_ms(1000);
+    aster_print("\nNacitam kernel...\n");
+    timer_sleep_ms(600);
 }
 
