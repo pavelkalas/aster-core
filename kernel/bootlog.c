@@ -327,9 +327,10 @@ void system_shutdown_prepare(const char *typ) {
     if (typ && typ[0]) {
         display_clear();
         display_set_color(0x0F, 0x00);
-        aster_print("Sekvence ");
+        aster_print("System bude ");
         aster_print(typ);
-        aster_print(" systemu\n\n");
+        aster_print("...\n\n");
+        timer_sleep_ms(1000);
     }
 
     boot_step_begin("Ukonceni uzivatelske session");
