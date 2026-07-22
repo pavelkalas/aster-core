@@ -40,11 +40,12 @@ void kmain(void) {
         } else {
             display_set_color(0x07, 0x00);
             aster_print("[aster-core v0.13] Copyright (c) 2026 Pavel Kalas\n\n");
-            display_set_color(0x0E, 0x00);
-            aster_print("Pro instalaci na disk spust prikaz: install\n");
+            display_set_color(0x04, 0x00);
+            aster_print("Tento system neni nainstalovan. Pro instalaci spustte prikaz: install\n");
             display_set_color(0x0F, 0);
+            aster_print("\n");
         }
-        aster_print("Pro zobrazeni prikazu pouzij 'help'\n\n");
+        aster_print("Pro zobrazeni prikazu pouzij 'help [stranka]' nebo 'helpall'\n\n");
         shell_loop();
     }
 }
