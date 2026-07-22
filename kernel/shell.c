@@ -62,8 +62,6 @@ static const char g_help_lines[][80] = {
     "install               - instalace systemu na disk",
     "fm                    - file manager",
     "edit filename         - editor (Ctrl+S, ESC)",
-    "calc A op B           - vypocet (+ - * /)",
-    "tetris                - testovaci hra nad app API",
     "<sysapps nazvy>       - appka ze slozky sysapps",
     "echo text             - vypis textu",
     "ticks                 - pocet tiknuti casovace",
@@ -154,7 +152,7 @@ int run_sysapp_by_name(const char *name) {
  * Provede restart systému přes I/O porty (0x64, 0xCF9, ACPI porty).
  */
 static void cmd_reboot(void) {
-    system_shutdown_prepare("restart");
+    system_shutdown_prepare("restartovan");
     boot_step_begin("Resetovani hardwaru");
     __asm__ volatile ("cli");
     if (kbc_wait_input_clear()) outb(0x64, 0xFE);
@@ -166,7 +164,7 @@ static void cmd_reboot(void) {
  * Provede vypnutí systému přes ACPI a virtuální I/O porty (QEMU, Bochs, VirtualBox).
  */
 static void cmd_shutdown_(void) {
-    system_shutdown_prepare("vypnuti");
+    system_shutdown_prepare("vypnut");
     boot_step_begin("Vypnuti hardwaru");
     __asm__ volatile ("cli");
     outw(0x604, 0x2000); outw(0xB004, 0x2000);
@@ -357,14 +355,9 @@ static void run_c_like_script(const char *path) {
 
 /**
  * Provede instalaci systému na disk – vytvoří adresářovou strukturu,
- * uživatele, základní soubory (README, motd, profile, aliases).
+ * uživatele, základní soubory (motd, profile, aliases).
  */
 static void cmd_setup_install(void) {
-    static const char readme[] =
-        "aster-core base install\n--------------------\n"
-        "System byl nainstalovan prikazem setup.\n"
-        "Pro napovedu pouzij: help\n"
-        "Aliasy upravis v: /.aliases pomoci edit /.aliases\n";
     static const char motd[] = "Welcome to aster-core v0.13\nType 'help' for commands.\n";
     static const char profile[] = "echo Welcome in aster-core\n";
     static const char installed[] = "installed=1\n";
@@ -382,8 +375,7 @@ static void cmd_setup_install(void) {
     aster_print("Setup heslo (prazdne = auto-login): ");
     auth_readline_secret(setup_pass, sizeof(setup_pass));
 
-    if (fs_ensure_dir("/etc") != 0 || fs_ensure_dir("/home") != 0 ||
-        fs_ensure_dir("/bin") != 0 || fs_ensure_dir("/var") != 0 || fs_ensure_dir("/tmp") != 0) {
+    if (fs_ensure_dir("/etc") != 0 || fs_ensure_dir("/home") != 0) {
         print_error("Setup error: nelze pripravit adresarovou strukturu"); return;
     }
 
@@ -394,8 +386,7 @@ static void cmd_setup_install(void) {
         if (fs_ensure_dir(user_home) != 0) { printk("Setup error: home %s\n", user_home); return; }
     }
 
-    if (fs_ensure_file_text("/README.txt", readme) != 0 ||
-        fs_ensure_file_text("/etc/motd", motd) != 0 ||
+    if (fs_ensure_file_text("/etc/motd", motd) != 0 ||
         fs_ensure_file_text("/etc/profile", profile) != 0 ||
         fs_ensure_file_text("/.installed", installed) != 0) {
         print_error("Setup error: nelze zapsat systemove soubory"); return;
@@ -493,6 +484,17 @@ void shell_loop(void) {
                 resolve_path(arg1, full, sizeof(full));
                 if (asterfs_get_type(full) == 1) { aster_memset(g_cwd, 0, sizeof(g_cwd)); aster_memcpy(g_cwd, full, aster_strlen(full)); }
                 else print_error("Slozka neexistuje");
+            }
+        } else if (aster_strcmp(exec_cmd, "makfile") == 0 || aster_strcmp(exec_cmd, "touch") == 0) {
+            arg1 = next_token(&cursor);
+            if (!arg1) print_error("Pouziti: makfile <filename>");
+            else {
+                resolve_path(arg1, full, sizeof(full));
+                if (asterfs_get_type(full) >= 0) {
+                    print_error("Soubor jiz existuje");
+                } else {
+                    aster_print(asterfs_create_file(full) == 0 ? "OK\n" : "ERROR\n");
+                }
             }
         } else if (aster_strcmp(exec_cmd, "makdir") == 0) {
             arg1 = next_token(&cursor);
