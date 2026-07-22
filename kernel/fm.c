@@ -72,13 +72,13 @@ static void fm_preview_file(const char *path) {
     int n = asterfs_read_file(path, buf, 4096);
     display_clear();
     display_set_color(0x07, 0x01);
-    printk(" FILE PREVIEW: %s ", path);
+    printk(" Nahled souboru: %s ", path);
     display_set_color(0x0E, 0x08);
     aster_print("\n\n");
     if (n < 0) print_error("Soubor nelze otevrit");
     else { buf[n] = '\0'; printk("%s\n", (char *)buf); }
     display_set_color(0x0E, 0x08);
-    aster_print("\n\nStiskni libovolnou klavesu...\n");
+    aster_print("\n\nStiskni libovolnou klavesu pro ukonceni...\n");
     (void)keyboard_read_key();
 }
 
@@ -94,10 +94,10 @@ static void fm_draw(const char *cwd, int selected, int top) {
     display_set_color(0x0E, 0);
     display_clear();
     display_set_color(0x07, 0);
-    printk(" File manager | path: %s ", cwd);
+    printk(" Spravce souboru | cesta: %s ", cwd);
     display_set_color(0x0E, 0);
     aster_print("\n");
-    aster_print(" Keymap: U/DOWN=scroll, ENTER=open, E=edit, D=delete, BACKSPACE=up, Q=quit \n\n");
+    aster_print("Klavesy:\n Nahoru/Dolu=posunuti    ENTER=otevrit    E=upravit\n D=smazat    BACKSPACE=zpet o adresar (../)    Q=ukoncit \n\n");
 
     for (i = 0; i < FM_VIEW_ROWS; ++i) {
         int idx = top + i;
