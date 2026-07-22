@@ -230,15 +230,18 @@ void auth_login_screen(void) {
         auth_readline_plain(name, sizeof(name));
         aster_print("Heslo: ");
         auth_readline_secret(pass, sizeof(pass));
-        timer_sleep_ms(1000);
-
+        timer_sleep_ms(250);
+        
         int idx = auth_find_user(name);
         if (idx >= 0 && aster_strcmp(g_users[idx].pass, pass) == 0) {
             aster_memset(g_current_user, 0, sizeof(g_current_user));
             aster_memcpy(g_current_user, g_users[idx].name, aster_strlen(g_users[idx].name));
+            aster_print("Entering shell...");        
+            timer_sleep_ms(600);
             return;
         }
+        
         print_error("Spatny login nebo heslo, zkus to znovu...");
-        timer_sleep_ms(4000);
+        timer_sleep_ms(2500);
     }
 }
