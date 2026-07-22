@@ -6,9 +6,9 @@
  */
 
 /*
- * Tento soubor spravuje zivotni cyklus kernel procesu.
- * Implementuje statickou procesovou tabulku, prirazovani PID,
- * pripravu stacku a zakladni operace pro vytvoreni a ukonceni procesu.
+ * Tento soubor spravuje životní cyklus kernel procesů.
+ * Implementuje statickou procesovou tabulku, přidělování PID,
+ * přípravu stacku a základní operace pro vytvoření a ukončení procesu.
  */
 
 #include "memory.h"
@@ -22,6 +22,10 @@ static usize g_process_count = 0;
 static u32 g_next_pid = 1;
 static process_t *g_current = 0;
 
+/**
+ * Inicializuje procesovou tabulku – vynuluje všechny záznamy,
+ * nastaví počet procesů na 0 a aktuální proces na NULL.
+ */
 void process_init(void) {
     usize i;
 
@@ -39,6 +43,15 @@ void process_init(void) {
     g_current = 0;
 }
 
+/**
+ * Vytvoří nový proces s daným jménem, vstupní funkcí a prioritou.
+ * Alokuje zásobník a nastaví kontext (RIP, RBP).
+ *
+ * @param name     Název procesu (const char *)
+ * @param entry    Vstupní bod procesu (void (*)(void))
+ * @param priority Priorita (u8)
+ * @return         Ukazatel na nový proces, nebo NULL při selhání (process_t *)
+ */
 process_t *process_create(const char *name, void (*entry)(void), u8 priority) {
     process_t *p;
     void *stack;
@@ -68,24 +81,47 @@ process_t *process_create(const char *name, void (*entry)(void), u8 priority) {
     return p;
 }
 
+/**
+ * Ukončí aktuálně běžící proces (nastaví stav na PROCESS_EXITED).
+ */
 void process_exit(void) {
     if (g_current) {
         g_current->state = PROCESS_EXITED;
     }
 }
 
+/**
+ * Vrátí ukazatel na aktuálně běžící proces.
+ *
+ * @return Ukazatel na aktuální proces, nebo NULL (process_t *)
+ */
 process_t *process_current(void) {
     return g_current;
 }
 
+/**
+ * Nastaví aktuálně běžící proces.
+ *
+ * @param p Ukazatel na proces (process_t *)
+ */
 void process_set_current(process_t *p) {
     g_current = p;
 }
 
+/**
+ * Vrátí ukazatel na procesovou tabulku.
+ *
+ * @return Ukazatel na první prvek tabulky (process_t *)
+ */
 process_t *process_table(void) {
     return &g_processes[0];
 }
 
+/**
+ * Vrátí aktuální počet procesů v tabulce.
+ *
+ * @return Počet procesů (usize)
+ */
 usize process_count(void) {
     return g_process_count;
 }

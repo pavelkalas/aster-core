@@ -2,7 +2,7 @@
  * AsterOS Kernel
  * Autor: Pavel Kalas
  *
- * Shell — hlavni interaktivni smycka, parsovani prikazu a dispatcher.
+ * Shell — hlavní interaktivní smyčka, parsování příkazů a dispatcher.
  */
 
 #include "shell.h"
@@ -75,12 +75,22 @@ static const char g_help_lines[][80] = {
     "shutdown              - zastavit system",
 };
 
+/**
+ * Vypíše chybovou hlášku červeně.
+ *
+ * @param msg Text chyby (const char *)
+ */
 void print_error(const char *msg) {
     display_set_color(0x0C, 0x00);
     printk("%s\n", msg);
     display_set_color(0x0F, 0x00);
 }
 
+/**
+ * Zobrazí banner AsterOS s volitelným podtitulem.
+ *
+ * @param subtitle Podtitul (const char *)
+ */
 void show_aster_banner(const char *subtitle) {
     display_set_color(0x08, 0x00);
     aster_print("[aster-core v0.13] Copyright (c) 2026 Pavel Kalas\n\n");
@@ -88,6 +98,12 @@ void show_aster_banner(const char *subtitle) {
     if (subtitle && subtitle[0]) printk("%s\n", subtitle);
 }
 
+/**
+ * Vypíše profilovací informaci – počet tiků a milisekund.
+ *
+ * @param entry_addr  Adresa vstupního bodu (const void *)
+ * @param delta_ticks Počet tiků (unsigned long)
+ */
 void print_exec_profile_ticks(const void *entry_addr, unsigned long delta_ticks) {
     unsigned long long scaled = 0;
     unsigned int ms_int = 0, ms_frac7 = 0;
@@ -103,12 +119,24 @@ void print_exec_profile_ticks(const void *entry_addr, unsigned long delta_ticks)
     printk("%u.%sms - %p\n", ms_int, frac, entry_addr);
 }
 
+/**
+ * Vypíše profilovací informaci o době běhu příkazu.
+ *
+ * @param entry_addr  Adresa vstupního bodu (const void *)
+ * @param start_ticks Čas zahájení v ticích (unsigned long)
+ */
 void print_exec_profile(const void *entry_addr, unsigned long start_ticks) {
     unsigned long end_ticks = timer_ticks();
     unsigned long delta_ticks = end_ticks - start_ticks;
     print_exec_profile_ticks(entry_addr, delta_ticks);
 }
 
+/**
+ * Najde a spustí sysapp podle jména.
+ *
+ * @param name Název aplikace (const char *)
+ * @return     0 při úspěchu, -1 pokud nenalezena (int)
+ */
 int run_sysapp_by_name(const char *name) {
     usize i;
     if (!name || name[0] == '\0') return -1;
@@ -122,6 +150,9 @@ int run_sysapp_by_name(const char *name) {
     return -1;
 }
 
+/**
+ * Provede restart systému přes I/O porty (0x64, 0xCF9, ACPI porty).
+ */
 static void cmd_reboot(void) {
     system_shutdown_prepare("restart");
     boot_step_begin("Resetovani hardwaru");
@@ -131,6 +162,9 @@ static void cmd_reboot(void) {
     for (;;) __asm__ volatile ("hlt");
 }
 
+/**
+ * Provede vypnutí systému přes ACPI a virtuální I/O porty (QEMU, Bochs, VirtualBox).
+ */
 static void cmd_shutdown_(void) {
     system_shutdown_prepare("vypnuti");
     boot_step_begin("Vypnuti hardwaru");
@@ -140,6 +174,9 @@ static void cmd_shutdown_(void) {
     for (;;) __asm__ volatile ("hlt");
 }
 
+/**
+ * Vypíše seznam všech procesů z procesové tabulky.
+ */
 static void shell_processes(void) {
     process_t *table = process_table();
     usize count = process_count();
@@ -156,12 +193,28 @@ static void shell_processes(void) {
     }
 }
 
+/**
+ * Zjistí, zda se řetězec cmd shoduje s názvem aliasu dané délky.
+ *
+ * @param start Začátek názvu aliasu (const char *)
+ * @param len   Délka názvu (usize)
+ * @param cmd   Porovnávaný příkaz (const char *)
+ * @return      1 pokud se shoduje, jinak 0 (int)
+ */
 static int alias_name_equals(const char *start, usize len, const char *cmd) {
     usize i = 0;
     while (cmd[i] && i < len) { if (start[i] != cmd[i]) return 0; ++i; }
     return i == len && cmd[i] == '\0';
 }
 
+/**
+ * Vyhledá alias pro daný příkaz v souboru "/.aliases".
+ *
+ * @param cmd      Příkaz k vyhledání (const char *)
+ * @param out      Buffer pro výsledek aliasu (char *)
+ * @param out_size Velikost bufferu (usize)
+ * @return         1 pokud alias existuje a byl naplněn, jinak 0 (int)
+ */
 static int alias_lookup(const char *cmd, char *out, usize out_size) {
     char buf[4096];
     int n = asterfs_read_file(ALIASES_FILE, (u8 *)buf, 4096);
@@ -196,6 +249,10 @@ static int alias_lookup(const char *cmd, char *out, usize out_size) {
     return 0;
 }
 
+/**
+ * Zajistí existenci souboru s aliasy. Pokud neexistuje, vytvoří ho
+ * s výchozí sadou aliasů.
+ */
 void ensure_aliases_file(void) {
     static const char defaults[] =
         "ver=info\nmem=memory\nps=process\ncls=clear\ndir=ls\n"
@@ -206,8 +263,19 @@ void ensure_aliases_file(void) {
     (void)asterfs_write_file(ALIASES_FILE, (const u8 *)defaults, (u16)(sizeof(defaults) - 1));
 }
 
+/**
+ * Zjistí, zda je znak bílý.
+ *
+ * @param c Znak (char)
+ * @return  1 pokud je bílý, jinak 0 (int)
+ */
 static int is_space(char c) { return c == ' ' || c == '\t' || c == '\r' || c == '\n'; }
 
+/**
+ * Odstraní bílé znaky z obou konců řetězce (in-place).
+ *
+ * @param s Řetězec k oříznutí (char *)
+ */
 void trim_inplace(char *s) {
     usize start = 0, end = aster_strlen(s), i = 0;
     while (s[start] && is_space(s[start])) ++start;
@@ -216,6 +284,13 @@ void trim_inplace(char *s) {
     s[i] = '\0';
 }
 
+/**
+ * Vrátí další token (slovo) z řetězce, oddělený bílými znaky.
+ * Mění vstupní řetězec in-place (vkládá null terminátory).
+ *
+ * @param cursor Dvouúrovňový ukazatel na aktuální pozici v řetězci (char **)
+ * @return       Ukazatel na token, nebo NULL pokud došel text (char *)
+ */
 static char *next_token(char **cursor) {
     char *p = *cursor, *start;
     while (*p && is_space(*p)) ++p;
@@ -229,10 +304,23 @@ static char *next_token(char **cursor) {
 
 static void cmd_setup_install(void);
 
+/**
+ * Zpětné volání pro výpis položek adresáře (příkaz ls).
+ *
+ * @param name   Název (const char *)
+ * @param is_dir 1 pro adresář, 0 pro soubor (u8)
+ * @param size   Velikost (u16)
+ */
 static void fs_list_cb(const char *name, u8 is_dir, u16 size) {
     printk("%s  %s  %u\n", is_dir ? "DIR " : "FILE", name, (unsigned int)size);
 }
 
+/**
+ * Spustí jednoduchý "C-like script" – načte soubor a hledá v něm
+ * volání printf("text"), které interpretuje a vypíše.
+ *
+ * @param path Cesta k souboru (const char *)
+ */
 static void run_c_like_script(const char *path) {
     char src[4096];
     int n = asterfs_read_file(path, (u8 *)src, 4096);
@@ -267,6 +355,10 @@ static void run_c_like_script(const char *path) {
 
 #include "serial.h"
 
+/**
+ * Provede instalaci systému na disk – vytvoří adresářovou strukturu,
+ * uživatele, základní soubory (README, motd, profile, aliases).
+ */
 static void cmd_setup_install(void) {
     static const char readme[] =
         "aster-core base install\n--------------------\n"
@@ -334,6 +426,9 @@ static void cmd_setup_install(void) {
     }
 }
 
+/**
+ * Hlavní smyčka shellu – čte příkazy, parsuje je a volá příslušné handler funkce.
+ */
 void shell_loop(void) {
     char line[128];
     char full[64];

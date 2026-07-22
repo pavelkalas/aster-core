@@ -6,9 +6,9 @@
  */
 
 /*
- * Tento soubor implementuje zakladni klavesnicovy vstup pres PS/2 porty.
- * Preklada scancode na ASCII znaky a poskytuje funkci pro nacitani radku,
- * kterou pouziva shell pro prijem prikazu od uzivatele.
+ * Tento soubor implementuje základní klávesnicový vstup přes PS/2 porty.
+ * Překládá scancode na ASCII znaky a poskytuje funkci pro načítání řádku,
+ * kterou používá shell pro příjem příkazů od uživatele.
  */
 
 #include "display.h"
@@ -26,6 +26,12 @@ static int g_shift_down = 0;
 static void (*g_refresh_cb)(void) = 0;
 static unsigned long g_refresh_interval_ticks = 0;
 
+/**
+ * Aplikuje velikost písmen podle stavu Shift.
+ *
+ * @param c Znak (char)
+ * @return  Znak převedený na velké písmeno pokud je Shift stisknutý (char)
+ */
 static char apply_letter_case(char c) {
     int upper = g_shift_down;
 
@@ -40,6 +46,12 @@ static char apply_letter_case(char c) {
     return c;
 }
 
+/**
+ * Přečte jeden bajt z I/O portu.
+ *
+ * @param port Adresa portu (unsigned short)
+ * @return     Přečtená hodnota (unsigned char)
+ */
 static inline unsigned char inb(unsigned short port) {
     unsigned char ret;
     __asm__ volatile ("inb %1, %0" : "=a"(ret) : "Nd"(port));
@@ -53,14 +65,29 @@ static const char keymap[128] = {
     'b', 'n', 'm', ',', '.', '/', 0, '*', 0, ' ',
 };
 
+/**
+ * Inicializace klávesnice (v této implementaci prázdná).
+ */
 void keyboard_init(void) {
 }
 
+/**
+ * Nastaví callback pro periodické obnovení obrazovky (např. stavový řádek).
+ *
+ * @param cb             Zpětné volání (void (*)(void))
+ * @param interval_ticks Interval v ticích (unsigned long)
+ */
 void keyboard_set_refresh_callback(void (*cb)(void), unsigned long interval_ticks) {
     g_refresh_cb = cb;
     g_refresh_interval_ticks = interval_ticks;
 }
 
+/**
+ * Pokusí se přečíst klávesu (neblokující). Zpracovává PS/2 scancode,
+ * rozlišuje běžné klávesy, šipky, F1, F2, Ctrl+S a Shift.
+ *
+ * @return Kód klávesy (ASTER_KEY_xxx nebo ASCII), nebo -1 pokud nic není stisknuto (int)
+ */
 int keyboard_try_read_key(void) {
     unsigned char sc;
     int out = -1;
@@ -163,6 +190,11 @@ int keyboard_try_read_key(void) {
     return -1;
 }
 
+/**
+ * Přečte jednu klávesu (blokující). Čeká, dokud není klávesa stisknuta.
+ *
+ * @return Kód klávesy (int)
+ */
 int keyboard_read_key(void) {
     for (;;) {
         int k = keyboard_try_read_key();
@@ -174,6 +206,11 @@ int keyboard_read_key(void) {
     }
 }
 
+/**
+ * Smaže aktuálně zobrazený řádek (posune kurzor zpět).
+ *
+ * @param len Délka řádku (int)
+ */
 static void clear_current_line(int len) {
     int j;
 
@@ -182,6 +219,14 @@ static void clear_current_line(int len) {
     }
 }
 
+/**
+ * Nastaví buffer na text z historie a zároveň ho vypíše na obrazovku.
+ *
+ * @param buffer Cílový buffer (char *)
+ * @param len    Ukazatel na aktuální délku (int *)
+ * @param max_len Maximální délka bufferu (int)
+ * @param src    Zdrojový text z historie (const char *)
+ */
 static void set_line_from_history(char *buffer, int *len, int max_len, const char *src) {
     int j = 0;
     int limit = max_len - 1;
@@ -197,6 +242,11 @@ static void set_line_from_history(char *buffer, int *len, int max_len, const cha
     *len = j;
 }
 
+/**
+ * Přidá řádek do historie příkazů (duplicitní řádky se ignorují).
+ *
+ * @param line Řádek k přidání (const char *)
+ */
 static void history_push(const char *line) {
     int i;
     int slot;
@@ -230,6 +280,15 @@ static void history_push(const char *line) {
     }
 }
 
+/**
+ * Přečte řádek textu z klávesnice do bufferu.
+ * Podporuje historii (šipky nahoru/dolu), backspace a zobrazuje
+ * periodicky refresh callback.
+ *
+ * @param buffer  Cílový buffer (char *)
+ * @param max_len Maximální délka (int)
+ * @return        Počet přečtených znaků (int)
+ */
 int keyboard_readline(char *buffer, int max_len) {
     int i = 0;
     int history_nav = -1;

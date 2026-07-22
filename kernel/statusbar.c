@@ -2,7 +2,7 @@
  * AsterOS Kernel
  * Autor: Pavel Kalas
  *
- * Statusbar – spodni radek obrazovky s pameti, marquee a hinty.
+ * Statusbar – spodní řádek obrazovky s pamětí, marquee a hinty.
  */
 
 #include "statusbar.h"
@@ -21,6 +21,12 @@ int  g_status_marquee_only = 0;
 char g_status_left_hint[80];
 int  g_status_left_hint_on = 0;
 
+/**
+ * Nastaví text marquee (běžícího textu) ve stavovém řádku.
+ * K textu přidá 10 mezer jako oddělovač pro plynulé zacyklení.
+ *
+ * @param text Text k zobrazení (const char *)
+ */
 void status_set_marquee(const char *text) {
     usize p = 0;
     usize i = 0;
@@ -45,12 +51,20 @@ void status_set_marquee(const char *text) {
     g_status_marquee_offset = 0;
 }
 
+/**
+ * Smaže text marquee.
+ */
 void status_clear_marquee(void) {
     g_status_marquee[0] = '\0';
     g_status_marquee_on = 0;
     g_status_marquee_offset = 0;
 }
 
+/**
+ * Nastaví levý hint (textovou nápovědu) ve stavovém řádku.
+ *
+ * @param Text nápovědy (const char *)
+ */
 void status_set_left_hint(const char *text) {
     usize i = 0;
 
@@ -68,11 +82,19 @@ void status_set_left_hint(const char *text) {
     g_status_left_hint_on = (i > 0) ? 1 : 0;
 }
 
+/**
+ * Smaže levý hint.
+ */
 void status_clear_left_hint(void) {
     g_status_left_hint[0] = '\0';
     g_status_left_hint_on = 0;
 }
 
+/**
+ * Vykreslí spodní stavový řádek obrazovky.
+ * Zobrazuje informace o paměti (vlevo), marquee text (uprostřed)
+ * a volné místo (vpravo). Ukládá a obnovuje pozici kurzoru.
+ */
 void render_shell_statusbar(void) {
     usize save_row;
     usize save_col;

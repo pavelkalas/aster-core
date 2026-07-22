@@ -6,9 +6,9 @@
  */
 
 /*
- * Tento modul implementuje FS utility pro praci se souborovym systemem.
- * Obsahuje funkce pro resolvepath, kopirovani a mazani adresarovych stromu,
- * zajisteni existence adresaru a souboru a kontrolu instalace systemu.
+ * Tento modul implementuje FS utility pro práci se souborovým systémem.
+ * Obsahuje funkce pro resolve path, kopírování a mazání adresářových stromů,
+ * zajištění existence adresářů a souborů a kontrolu instalace systému.
  */
 
 #include "fs_utils.h"
@@ -23,6 +23,12 @@ char g_fs_tmp_paths[FS_TMP_MAX][64];
 u8   g_fs_tmp_types[FS_TMP_MAX];
 int  g_fs_tmp_count = 0;
 
+/**
+ * Zajistí existenci adresáře – pokud neexistuje, vytvoří ho.
+ *
+ * @param path Cesta k adresáři (const char *)
+ * @return     0 při úspěchu nebo již existuje, -1 při chybě (int)
+ */
 int fs_ensure_dir(const char *path) {
     int t;
     if (!path || path[0] == '\0') return -1;
@@ -32,6 +38,14 @@ int fs_ensure_dir(const char *path) {
     return asterfs_create_dir(path);
 }
 
+/**
+ * Zajistí existenci textového souboru – pokud neexistuje, vytvoří ho
+ * a zapíše do něj zadaný text.
+ *
+ * @param path Cesta k souboru (const char *)
+ * @param text Text k zápisu (const char *)
+ * @return     0 při úspěchu, -1 při chybě (int)
+ */
 int fs_ensure_file_text(const char *path, const char *text) {
     int t;
     if (!path || !text || path[0] == '\0') return -1;
@@ -41,16 +55,33 @@ int fs_ensure_file_text(const char *path, const char *text) {
     return asterfs_write_file(path, (const u8 *)text, (u16)aster_strlen(text)) < 0 ? -1 : 0;
 }
 
+/**
+ * Zjistí, zda je systém nainstalován (podle existence souboru /.installed).
+ *
+ * @return 1 pokud je nainstalován, jinak 0 (int)
+ */
 int system_is_installed(void) {
     return asterfs_get_type(INSTALL_FLAG_FILE) == 0;
 }
 
+/**
+ * Vrátí název souboru z cesty (vše za posledním '/').
+ *
+ * @param path Cesta (const char *)
+ * @return     Ukazatel na začátek názvu souboru (const char *)
+ */
 const char *path_basename(const char *path) {
     usize i = aster_strlen(path);
     while (i > 0) { if (path[i - 1] == '/') return &path[i]; --i; }
     return path;
 }
 
+/**
+ * Zjistí, zda je znak bílý (mezera, tab, CR, LF).
+ *
+ * @param c Znak (char)
+ * @return  1 pokud je bílý, jinak 0 (int)
+ */
 static int is_space(char c) {
     return c == ' ' || c == '\t' || c == '\r' || c == '\n';
 }
@@ -58,6 +89,14 @@ static int is_space(char c) {
 /* Forward reference */
 extern char g_cwd[64];
 
+/**
+ * Přeloží relativní cestu na absolutní vůči g_cwd (aktuálnímu adresáři).
+ * Speciální případy: ".", "..", absolutní cesta začínající na '/'.
+ *
+ * @param name    Relativní cesta (const char *)
+ * @param out     Výstupní buffer pro absolutní cestu (char *)
+ * @param out_size Velikost bufferu (usize)
+ */
 void resolve_path(const char *name, char *out, usize out_size) {
     usize i = 0, j = 0;
     if (!name || !out || out_size < 2) return;
@@ -85,6 +124,15 @@ void resolve_path(const char *name, char *out, usize out_size) {
     out[j] = '\0';
 }
 
+/**
+ * Přeloží relativní cestu na absolutní vůči zadanému základu.
+ * Funguje stejně jako resolve_path, ale base je explicitní parametr.
+ *
+ * @param base    Základní cesta (const char *)
+ * @param name    Relativní cesta (const char *)
+ * @param out     Výstupní buffer (char *)
+ * @param out_size Velikost bufferu (usize)
+ */
 void resolve_path_from(const char *base, const char *name, char *out, usize out_size) {
     usize i = 0, j = 0;
     if (!base || !name || !out || out_size < 2) return;
@@ -112,6 +160,13 @@ void resolve_path_from(const char *base, const char *name, char *out, usize out_
     out[j] = '\0';
 }
 
+/**
+ * Zjistí, zda je `path` stejný jako `root` nebo jeho podcesta.
+ *
+ * @param root Kořenová cesta (const char *)
+ * @param path Cesta k testování (const char *)
+ * @return     1 pokud je path self nebo child, jinak 0 (int)
+ */
 int path_is_self_or_child(const char *root, const char *path) {
     usize n;
     if (!root || !path) return 0;
@@ -122,6 +177,17 @@ int path_is_self_or_child(const char *root, const char *path) {
     return path[n] == '/';
 }
 
+/**
+ * Namapuje cestu z jednoho kořene na jiný.
+ * Např. map_path_prefix("/src", "/dst", "/src/a/b", out) -> "/dst/a/b".
+ *
+ * @param src_root  Zdrojový kořen (const char *)
+ * @param dst_root  Cílový kořen (const char *)
+ * @param path      Cesta ke konverzi (const char *)
+ * @param out       Výstupní buffer (char *)
+ * @param out_size  Velikost bufferu (usize)
+ * @return          0 při úspěchu, -1 pokud cesta není pod src_root (int)
+ */
 int map_path_prefix(const char *src_root, const char *dst_root, const char *path, char *out, usize out_size) {
     usize src_n, dst_n, suffix_n;
     if (!path_is_self_or_child(src_root, path)) return -1;
@@ -140,6 +206,13 @@ int map_path_prefix(const char *src_root, const char *dst_root, const char *path
     return 0;
 }
 
+/**
+ * Zpětné volání pro sběr všech položek FS (používá fs_collect_all).
+ *
+ * @param name   Název položky (const char *)
+ * @param is_dir 1 pro adresář, 0 pro soubor (u8)
+ * @param size   Velikost (u16, ignorováno)
+ */
 void fs_collect_cb(const char *name, u8 is_dir, u16 size) {
     usize n;
     (void)size;
@@ -152,11 +225,20 @@ void fs_collect_cb(const char *name, u8 is_dir, u16 size) {
     ++g_fs_tmp_count;
 }
 
+/**
+ * Sběr všech položek ze souborového systému do dočasných polí.
+ */
 void fs_collect_all(void) {
     g_fs_tmp_count = 0;
     asterfs_list(fs_collect_cb);
 }
 
+/**
+ * Zjistí, zda má adresář nějaké podřízené položky.
+ *
+ * @parampath Cesta k adresáři (const char *)
+ * @return    1 pokud má potomky, jinak 0 (int)
+ */
 int fs_dir_has_children(const char *path) {
     int i;
     fs_collect_all();
@@ -166,6 +248,13 @@ int fs_dir_has_children(const char *path) {
     return 0;
 }
 
+/**
+ * Zkopíruje soubor z absolutní cesty src na absolutní cestu dst.
+ *
+ * @param src Zdrojová cesta (const char *)
+ * @param dst Cílová cesta (const char *)
+ * @return    0 při úspěchu, -1 při chybě (int)
+ */
 int fs_copy_file_abs(const char *src, const char *dst) {
     u8 buf[4096];
     int n;
@@ -176,6 +265,15 @@ int fs_copy_file_abs(const char *src, const char *dst) {
     return 0;
 }
 
+/**
+ * Zkopíruje adresář z absolutní cesty src na absolutní cestu dst.
+ * Může kopírovat i rekurzivně (včetně podadresářů a souborů).
+ *
+ * @param src       Zdrojová cesta (const char *)
+ * @param dst       Cílová cesta (const char *)
+ * @param recursive 1 = kopírovat rekurzivně, 0 = jen prázdný adresář (int)
+ * @return          0 při úspěchu, -1 (chyba) nebo -2 (není prázdný a není recursive) (int)
+ */
 int fs_copy_dir_abs(const char *src, const char *dst, int recursive) {
     int i;
     char mapped[64];
@@ -202,6 +300,12 @@ int fs_copy_dir_abs(const char *src, const char *dst, int recursive) {
     return 0;
 }
 
+/**
+ * Rekurzivně smaže celý adresářový strom (všechny soubory a adresáře pod root).
+ *
+ * @param root Kořenová cesta ke smazání (const char *)
+ * @return     0 při úspěchu, -1 při chybě (int)
+ */
 int fs_remove_tree_abs(const char *root) {
     int i, j;
     fs_collect_all();

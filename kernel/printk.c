@@ -6,9 +6,9 @@
  */
 
 /*
- * Tento modul implementuje tiskovou vrstvu kernelu nad VGA vystupem.
- * Obsahuje podporu zakladnich formatovacich specifikatoru pro ladeni
- * a jednotne API, ktere pouzivaji ostatni casti jadra pri logovani.
+ * Tento modul implementuje tiskovou vrstvu kernelu nad VGA výstupem.
+ * Obsahuje podporu základních formátovacích specifikátorů pro ladění
+ * a jednotné API, které používají ostatní části jádra při logování.
  */
 
 #include <stdarg.h>
@@ -17,11 +17,23 @@
 #include "printk.h"
 #include "serial.h"
 
+/**
+ * Vypíše jeden znak na výstup.
+ * Znak je odeslán jak na VGA display, tak na sériovou linku.
+ *
+ * @param c Znak k vypsání (char)
+ */
 static void printk_putc(char c) {
     display_putc(c);
     serial_write_char(c);
 }
 
+/**
+ * Vypíše řetězec znaků na výstup.
+ * Pokud je předaný ukazatel NULL, vypíše se místo něj "(null)".
+ *
+ * @param s Ukazatel na null-terminovaný řetězec (const char *)
+ */
 static void printk_puts(const char *s) {
     if (!s) {
         s = "(null)";
@@ -32,6 +44,14 @@ static void printk_puts(const char *s) {
     }
 }
 
+/**
+ * Vypíše celé nezáporné číslo v požadované číselné soustavě.
+ * Používá se jako pomocná funkce pro formátování čísel.
+ * Podporuje soustavy od 2 do 16 (číslice 0-9, a-f).
+ *
+ * @param value  Hodnota k vypsání (unsigned long long)
+ * @param base   Číselná soustava (unsigned int), např. 10 pro desítkovou, 16 pro hex
+ */
 static void print_u64(unsigned long long value, unsigned int base) {
     char buf[32];
     const char *digits = "0123456789abcdef";
@@ -52,10 +72,29 @@ static void print_u64(unsigned long long value, unsigned int base) {
     }
 }
 
+/**
+ * Vypíše text na výstup (jednoduchá obálka pro tisk řetězce).
+ *
+ * @param text Ukazatel na null-terminovaný řetězec (const char *)
+ */
 void aster_print(const char *text) {
     printk_puts(text);
 }
 
+/**
+ * Kernelová obdoba printf – formátovaný výstup na obrazovku a sériovou linku.
+ * Podporuje základní formátovací specifikátory:
+ *   %%  – vypsání znaku '%'
+ *   %c  – jeden znak (int se převede na char)
+ *   %s  – řetězec (const char *)
+ *   %d  – celé číslo se znaménkem (int)
+ *   %u  – bezneznaménkové celé číslo (unsigned int)
+ *   %x  – hexadecimální číslo (unsigned int)
+ *   %p  – adresa/ukazatel (void *), vždy s prefixem "0x"
+ *
+ * @param fmt  Formátovací řetězec (const char *)
+ * @param ...  Variabilní argumenty odpovídající formátovacím specifikátorům
+ */
 void printk(const char *fmt, ...) {
     va_list args;
 

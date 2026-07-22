@@ -1,10 +1,19 @@
 ; /*
-;  * AsterOS Kernel
-;  * Autor: Pavel Kalaš
-;  * Rok: 2026
-;  *
-;  * Vytvořeno jen tak z nudy a z chuti zkoušet nové věci.
-;  */
+; * AsterOS Kernel
+; * Autor: Pavel Kalaš
+; * Rok: 2026
+; *
+; * Vytvořeno jen tak z nudy a z chuti zkoušet nové věci.
+; *
+; * Interrupt stubs — assembly wrapper pro každé přerušení/výjimku (x86_64).
+; *
+; * Každý stub uloží error code (0 pokud ho CPU nevytváří) a číslo vektoru,
+; * pak skočí na isr_common, který uloží registry, zavolá C dispatcher
+; * interrupt_dispatch() a po návratu obnoví registry a provede IRETQ.
+; *
+; * Tabulka isr_stub_table obsahuje ukazatele na všech 35 stubů
+; * (0-33 + 128 pro syscall), kterou cpu.c používá při nastavování IDT.
+; */
 
 [bits 64]
 section .text
@@ -141,3 +150,4 @@ isr_stub_table:
     dq isr_32
     dq isr_33
     dq isr_128
+

@@ -6,9 +6,9 @@
  */
 
 /*
- * Tento soubor drzi nouzovou cestu pro neobnovitelne chyby jadra.
- * Pri volani panic prepne vizualni styl vystupu, vypise duvod selhani
- * a bezpecne zastavi CPU, aby se predeslo dalsimu poskozeni stavu.
+ * Tento soubor drží nouzovou cestu pro neobnovitelné chyby jádra.
+ * Při volání panic přepne vizuální styl výstupu, vypíše důvod selhání
+ * a bezpečně zastaví CPU, aby se předešlo dalšímu poškození stavu.
  */
 
 #include "cpu.h"
@@ -16,6 +16,11 @@
 #include "panic.h"
 #include "printk.h"
 
+/**
+ * Zastaví jádro při neobnovitelné chybě – vypíše důvod a zastaví CPU.
+ *
+ * @param reason Textový popis důvodu paniky (const char *)
+ */
 void panic(const char *reason) {
     display_set_color(0x0F, 0x04);
     printk("\n[KERNEL PANIC] %s\n", reason ? reason : "unknown");

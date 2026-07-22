@@ -2,7 +2,7 @@
  * AsterOS Kernel
  * Autor: Pavel Kalas
  *
- * Textovy editor pro shell.
+ * Textový editor pro shell.
  */
 
 #include "editor.h"
@@ -16,6 +16,14 @@
 #include "timer.h"
 #include "fs_utils.h"
 
+/**
+ * Překreslí celou obrazovku editoru včetně obsahu souboru a kurzoru.
+ *
+ * @param path Cesta k souboru (const char *)
+ * @param buf  Buffer s obsahem souboru (const char *)
+ * @param len  Délka obsahu (usize)
+ * @param pos  Pozice kurzoru v bufferu (usize)
+ */
 static void editor_redraw(const char *path, const char *buf, usize len, usize pos) {
     usize i;
     usize line = 1;
@@ -47,6 +55,13 @@ static void editor_redraw(const char *path, const char *buf, usize len, usize po
     display_set_cursor(cursor_row, cursor_col);
 }
 
+/**
+ * Spustí textový editor pro soubor na zadané cestě.
+ * Podporuje pohyb šipkami, mazání Backspace, ukládání (Ctrl+S)
+ * a ukončení (ESC).
+ *
+ * @param path Cesta k souboru (const char *)
+ */
 void shell_edit_file(const char *path) {
     char buf[4096];
     int n = asterfs_read_file(path, (u8 *)buf, 4096);

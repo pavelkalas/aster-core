@@ -6,9 +6,9 @@
  */
 
 /*
- * Tento soubor obsahuje vlastni implementace zakladnich utility funkci.
- * Kernel je pouziva misto standardni knihovny pro strlen, strcmp,
- * memcpy a memset, aby zustal freestanding a plne pod kontrolou jadra.
+ * Tento soubor obsahuje vlastní implementace základních utility funkcí.
+ * Kernel je používá místo standardní knihovny pro strlen, strcmp,
+ * memcpy a memset, aby zůstal freestanding a plně pod kontrolou jádra.
  */
 
 #include "string.h"
@@ -17,11 +17,23 @@
 #define NULL ((void *)0)
 #endif
 
+/**
+ * Zjistí, zda je znak whitespace (mezera, tab, nový řádek, atd.).
+ *
+ * @param c Znak (char)
+ * @return  1 pokud je whitespace, jinak 0 (int)
+ */
 static inline int aster_isspace(char c) {
     return (c == ' ' || c == '\t' || c == '\n' ||
             c == '\r' || c == '\v' || c == '\f');
 }
 
+/**
+ * Vrátí délku řetězce (počet znaků před null terminátorem).
+ *
+ * @param s Řetězec (const char *)
+ * @return  Počet znaků (usize)
+ */
 usize aster_strlen(const char *s) {
     usize n = 0;
     while (s && s[n]) {
@@ -30,6 +42,13 @@ usize aster_strlen(const char *s) {
     return n;
 }
 
+/**
+ * Porovná dva řetězce lexikograficky.
+ *
+ * @param a První řetězec (const char *)
+ * @param b Druhý řetězec (const char *)
+ * @return  0 pokud jsou stejné, záporné číslo pokud a < b, kladné pokud a > b (int)
+ */
 int aster_strcmp(const char *a, const char *b) {
     while (*a && (*a == *b)) {
         ++a;
@@ -38,6 +57,14 @@ int aster_strcmp(const char *a, const char *b) {
     return (unsigned char)*a - (unsigned char)*b;
 }
 
+/**
+ * Porovná první n znaků dvou řetězců.
+ *
+ * @param a První řetězec (const char *)
+ * @param b Druhý řetězec (const char *)
+ * @param n Maximální počet znaků k porovnání (usize)
+ * @return  0 pokud jsou stejné, jinak rozdíl prvních odlišných znaků (int)
+ */
 int aster_strncmp(const char *a, const char *b, usize n) {
     usize i;
 
@@ -50,6 +77,14 @@ int aster_strncmp(const char *a, const char *b, usize n) {
     return 0;
 }
 
+/**
+ * Zkopíruje n bajtů z paměti src do dst.
+ *
+ * @param dst Cílový ukazatel (void *)
+ * @param src Zdrojový ukazatel (const void *)
+ * @param n   Počet bajtů (usize)
+ * @return    Ukazatel na dst (void *)
+ */
 void *aster_memcpy(void *dst, const void *src, usize n) {
     usize i;
     u8 *d = (u8 *)dst;
@@ -62,6 +97,14 @@ void *aster_memcpy(void *dst, const void *src, usize n) {
     return dst;
 }
 
+/**
+ * Nastaví n bajtů paměti na hodnotu v.
+ *
+ * @param dst Ukazatel na paměť (void *)
+ * @param v   Hodnota (int, interně konvertovaná na u8)
+ * @param n   Počet bajtů (usize)
+ * @return    Ukazatel na dst (void *)
+ */
 void *aster_memset(void *dst, int v, usize n) {
     usize i;
     u8 *d = (u8 *)dst;
@@ -73,6 +116,13 @@ void *aster_memset(void *dst, int v, usize n) {
     return dst;
 }
 
+/**
+ * Zkopíruje řetězec src do dst (včetně null terminátoru).
+ *
+ * @param dst Cílový buffer (char *)
+ * @param src Zdrojový řetězec (const char *)
+ * @return    Ukazatel na dst (char *)
+ */
 char *aster_strcpy(char *dst, const char *src) {
     char *d = dst;
     while ((*d++ = *src++) != '\0')
@@ -80,6 +130,13 @@ char *aster_strcpy(char *dst, const char *src) {
     return dst;
 }
 
+/**
+ * Najde první výskyt podřetězce needle v řetězci haystack.
+ *
+ * @param haystack Hledaný řetězec (const char *)
+ * @param needle   Hledaný podřetězec (const char *)
+ * @return         Ukazatel na první výskyt, nebo NULL (char *)
+ */
 char *aster_strstr(const char *haystack, const char *needle) {
     if (!*needle)
         return (char *)haystack;
@@ -98,6 +155,12 @@ char *aster_strstr(const char *haystack, const char *needle) {
     return NULL;
 }
 
+/**
+ * Odstraní bílé znaky z obou konců řetězce a vrátí ukazatel na začátek.
+ *
+ * @param str Řetězec k oříznutí (char *)
+ * @return    Ukazatel na začátek oříznutého řetězce (char *)
+ */
 char *aster_trim(char *str) {
     if (!str)
         return NULL;
@@ -115,6 +178,16 @@ char *aster_trim(char *str) {
     return str;
 }
 
+/**
+ * Extrahuje podřetězec z řetězce od indexu start o délce length.
+ *
+ * @param dst     Cílový buffer (char *)
+ * @param dstsize Velikost cílového bufferu (usize)
+ * @param src     Zdrojový řetězec (const char *)
+ * @param start   Počáteční index (usize)
+ * @param length  Maximální délka podřetězce (usize)
+ * @return        Počet zkopírovaných znaků, nebo -1 při chybě (int)
+ */
 int aster_substring(char *dst, usize dstsize, const char *src,
                     usize start, usize length) {
     if (!dst || dstsize == 0 || !src)
@@ -138,6 +211,13 @@ int aster_substring(char *dst, usize dstsize, const char *src,
     return (int)length;
 }
 
+/**
+ * Odstraní z řetězce všechny výskyty podřetězce substr.
+ *
+ * @param str    Řetězec k úpravě (char *)
+ * @param substr Podřetězec k odstranění (const char *)
+ * @return       Ukazatel na upravený řetězec (char *)
+ */
 char *aster_remove(char *str, const char *substr) {
     if (!str || !substr || !*substr)
         return str;
@@ -163,6 +243,16 @@ char *aster_remove(char *str, const char *substr) {
     return str;
 }
 
+/**
+ * Rozdělí řetězec na tokeny podle oddělovače.
+ * Pokud je tokens NULL, pouze spočítá počet tokenů.
+ *
+ * @param str       Řetězec k rozdělení (bude modifikován) (char *)
+ * @param delim     Oddělovač (const char *)
+ * @param tokens    Pole pro ukazatele na tokeny, nebo NULL (char **)
+ * @param max_tokens Maximální počet tokenů (usize)
+ * @return          Počet tokenů, nebo -1 při chybě (int)
+ */
 int aster_split(char *str, const char *delim, char **tokens, usize max_tokens) {
     if (!str || !delim || !*delim)
         return -1;
@@ -207,10 +297,24 @@ int aster_split(char *str, const char *delim, char **tokens, usize max_tokens) {
     return count;
 }
 
+/**
+ * Zjistí, zda řetězec obsahuje podřetězec.
+ *
+ * @param str    Hledaný řetězec (const char *)
+ * @param substr Hledaný podřetězec (const char *)
+ * @return       1 pokud obsahuje, jinak 0 (int)
+ */
 int aster_contains(const char *str, const char *substr) {
     return aster_strstr(str, substr) != NULL;
 }
 
+/**
+ * Zjistí, zda řetězec začíná daným prefixem.
+ *
+ * @param str    Řetězec (const char *)
+ * @param prefix Hledaný prefix (const char *)
+ * @return       1 pokud ano, jinak 0 (int)
+ */
 int aster_starts_with(const char *str, const char *prefix) {
     if (!str || !prefix)
         return 0;
@@ -223,6 +327,13 @@ int aster_starts_with(const char *str, const char *prefix) {
     return 1;
 }
 
+/**
+ * Zjistí, zda řetězec končí daným suffixem.
+ *
+ * @param str    Řetězec (const char *)
+ * @param suffix Hledaný suffix (const char *)
+ * @return       1 pokud ano, jinak 0 (int)
+ */
 int aster_ends_with(const char *str, const char *suffix) {
     if (!str || !suffix)
         return 0;

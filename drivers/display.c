@@ -22,10 +22,19 @@ static u8 color = 0x0F;
 static usize row = 0;
 static usize col = 0;
 
+/**
+ * Zapíše bajt na I/O port.
+ *
+ * @param port  Adresa portu (u16)
+ * @param value Hodnota k zápisu (u8)
+ */
 static inline void outb(u16 port, u8 value) {
     __asm__ volatile ("outb %0, %1" : : "a"(value), "Nd"(port));
 }
 
+/**
+ * Aktualizuje hardwarový kurzor VGA (přes CRT kontrolér).
+ */
 static void update_hw_cursor(void) {
     u16 pos = (u16)(row * VGA_WIDTH + col);
 
@@ -35,10 +44,20 @@ static void update_hw_cursor(void) {
     outb(0x3D5, (u8)((pos >> 8) & 0xFF));
 }
 
+/**
+ * Vytvoří VGA entry (znak + barva) pro zápis do bufferu.
+ *
+ * @param c   Znak (char)
+ * @param clr Barva (u8)
+ * @return    16bitová hodnota pro VGA buffer (u16)
+ */
 static inline u16 vga_entry(char c, u8 clr) {
     return (u16)c | ((u16)clr << 8);
 }
 
+/**
+ * Posune obsah obrazovky o řádek nahoru, pokud je kurzor na posledním řádku.
+ */
 static void scroll_if_needed(void) {
     usize r;
     usize c;
@@ -60,10 +79,19 @@ static void scroll_if_needed(void) {
     row = VGA_CONTENT_HEIGHT - 1;
 }
 
+/**
+ * Nastaví barvu popředí a pozadí pro textový výstup.
+ *
+ * @param fg Barva popředí (u8)
+ * @param bg Barva pozadí (u8)
+ */
 void display_set_color(u8 fg, u8 bg) {
     color = (u8)((bg << 4) | (fg & 0x0F));
 }
 
+/**
+ * Smaže celou obrazovku a nastaví kurzor na pozici (0,0).
+ */
 void display_clear(void) {
     usize i;
 
@@ -76,11 +104,23 @@ void display_clear(void) {
     update_hw_cursor();
 }
 
+/**
+ * Inicializuje display – nastaví výchozí barvu a vyčistí obrazovku.
+ */
 void display_init(void) {
     display_set_color(0x0F, 0x00);
     display_clear();
 }
 
+/**
+ * Vypíše jeden znak na obrazovku. Zpracovává řídicí znaky:
+ *   \n – nový řádek
+ *   \r – návrat vozíku
+ *   \b – backspace
+ *   \t – tabulátor
+ *
+ * @param c Znak k vypsání (char)
+ */
 void display_putc(char c) {
     if (c == '\n') {
         col = 0;
@@ -132,12 +172,23 @@ void display_putc(char c) {
     update_hw_cursor();
 }
 
+/**
+ * Vypíše řetězec na obrazovku.
+ *
+ * @param text Řetězec (const char *)
+ */
 void display_write(const char *text) {
     while (*text) {
         display_putc(*text++);
     }
 }
 
+/**
+ * Získá aktuální pozici kurzoru.
+ *
+ * @param out_row Ukazatel na řádek (usize *), může být NULL
+ * @param out_col Ukazatel na sloupec (usize *), může být NULL
+ */
 void display_get_cursor(usize *out_row, usize *out_col) {
     if (out_row) {
         *out_row = row;
@@ -147,6 +198,12 @@ void display_get_cursor(usize *out_row, usize *out_col) {
     }
 }
 
+/**
+ * Nastaví kurzor na zadanou pozici.
+ *
+ * @param new_row Řádek (usize)
+ * @param new_col Sloupec (usize)
+ */
 void display_set_cursor(usize new_row, usize new_col) {
     if (new_row >= VGA_HEIGHT) {
         new_row = VGA_HEIGHT - 1;
@@ -160,6 +217,14 @@ void display_set_cursor(usize new_row, usize new_col) {
     update_hw_cursor();
 }
 
+/**
+ * Vyplní celý řádek obrazovky zadaným znakem a barvou.
+ *
+ * @param target_row Cílový řádek (usize)
+ * @param ch         Znak výplně (char)
+ * @param fg         Barva popředí (u8)
+ * @param bg         Barva pozadí (u8)
+ */
 void display_fill_row(usize target_row, char ch, u8 fg, u8 bg) {
     usize c;
     u8 clr;
@@ -174,6 +239,15 @@ void display_fill_row(usize target_row, char ch, u8 fg, u8 bg) {
     }
 }
 
+/**
+ * Zapíše text na zadanou pozici obrazovky s danou barvou.
+ *
+ * @param target_row   Řádek (usize)
+ * @param target_col   Sloupec (usize)
+ * @param text         Řetězec (const char *)
+ * @param fg           Barva popředí (u8)
+ * @param bg           Barva pozadí (u8)
+ */
 void display_write_at(usize target_row, usize target_col, const char *text, u8 fg, u8 bg) {
     usize c = target_col;
     u8 clr;

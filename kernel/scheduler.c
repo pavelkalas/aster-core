@@ -6,9 +6,9 @@
  */
 
 /*
- * Tento modul implementuje jednoduchy planovac typu round-robin.
- * Reaguje na tiky casovace, vybira dalsi bezici proces
- * a ridi prepinani mezi stavy READY, RUNNING a EXITED.
+ * Tento modul implementuje jednoduchý plánovač typu round-robin.
+ * Reaguje na tiky časovače, vybírá další běžící proces
+ * a řídí přepínání mezi stavy READY, RUNNING a EXITED.
  */
 
 #include "process.h"
@@ -18,11 +18,20 @@
 static usize g_current_index = 0;
 static unsigned long g_quantum_ticks = 0;
 
+/**
+ * Inicializuje plánovač – vynuluje index a čítač kvanta.
+ */
 void scheduler_init(void) {
     g_current_index = 0;
     g_quantum_ticks = 0;
 }
 
+/**
+ * Vybere další proces k běhu (round-robin) z procesové tabulky.
+ * Hledá proces ve stavu READY nebo RUNNING.
+ *
+ * @return Ukazatel na vybraný proces, nebo NULL pokud žádný není (process_t *)
+ */
 process_t *scheduler_pick_next(void) {
     process_t *table = process_table();
     usize count = process_count();
@@ -43,6 +52,10 @@ process_t *scheduler_pick_next(void) {
     return 0;
 }
 
+/**
+ * Provede jeden běh plánovače – vybere další proces a spustí ho.
+ * Pokud je proces ve stavu READY, spustí jeho vstupní funkci.
+ */
 void scheduler_run_once(void) {
     process_t *next = scheduler_pick_next();
 
@@ -61,6 +74,10 @@ void scheduler_run_once(void) {
     }
 }
 
+/**
+ * Dobrovolně předá řízení plánovači (yield).
+ * Aktuální proces přepne do READY a spustí se další.
+ */
 void scheduler_yield(void) {
     process_t *current = process_current();
 
@@ -71,6 +88,9 @@ void scheduler_yield(void) {
     scheduler_run_once();
 }
 
+/**
+ * Zpracuje tik plánovače – každý 5. tik provede přepnutí procesu.
+ */
 void scheduler_tick(void) {
     timer_tick_advance();
     ++g_quantum_ticks;

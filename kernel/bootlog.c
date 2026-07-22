@@ -6,8 +6,8 @@
  */
 
 /*
- * Bootlog — jednotne stavove vypisy, boot stepy a shutdown priprava.
- * Sjednocuje vsechny logovaci vypisy jadra na jednom miste.
+ * Bootlog — jednotné stavové výpisy, boot stepy a shutdown příprava.
+ * Sjednocuje všechny logovací výpisy jádra na jednom místě.
  */
 
 #include "bootlog.h"
@@ -21,6 +21,15 @@
 #include "string.h"
 #include "timer.h"
 
+/**
+ * Přidá textový řetězec na konec bufferu.
+ *
+ * @param dst   Cílový buffer (char *)
+ * @param pos   Aktuální pozice v bufferu (usize)
+ * @param max   Maximální velikost bufferu (usize)
+ * @param src   Zdrojový řetězec (const char *)
+ * @return      Nová pozice v bufferu (usize)
+ */
 usize append_text(char *dst, usize pos, usize max, const char *src) {
     while (*src && pos + 1 < max) {
         dst[pos++] = *src++;
@@ -31,6 +40,15 @@ usize append_text(char *dst, usize pos, usize max, const char *src) {
     return pos;
 }
 
+/**
+ * Přidá celé číslo (unsigned) na konec bufferu jako dekadický text.
+ *
+ * @param dst Cílový buffer (char *)
+ * @param pos Aktuální pozice v bufferu (usize)
+ * @param max Maximální velikost bufferu (usize)
+ * @param v   Hodnota k přidání (unsigned int)
+ * @return    Nová pozice v bufferu (usize)
+ */
 usize append_uint(char *dst, usize pos, usize max, unsigned int v) {
     char tmp[12];
     int i = 0;
@@ -64,10 +82,20 @@ static unsigned int g_boot_splash_steps_done = 0;
 static char g_boot_splash_log[BOOT_SPLASH_LOG_COUNT_MAX][56];
 static unsigned int g_boot_splash_log_count = 0;
 
+/**
+ * Zjistí, zda je bootovací splash obrazovka aktivní.
+ *
+ * @return 1 pokud je aktivní, jinak 0 (int)
+ */
 int boot_splash_is_active(void) {
     return g_boot_splash_active;
 }
 
+/**
+ * Resetuje splash obrazovku pro daný počet kroků.
+ *
+ * @param steps_total Celkový počet boot kroků (unsigned int)
+ */
 void boot_splash_reset(unsigned int steps_total) {
     unsigned int i;
 
@@ -81,10 +109,16 @@ void boot_splash_reset(unsigned int steps_total) {
     g_boot_splash_log_count = 0;
 }
 
+/**
+ * Ukončí splash obrazovku.
+ */
 void boot_splash_finish(void) {
     g_boot_splash_active = 0;
 }
 
+/**
+ * Vykreslí log posledních boot kroků na splash obrazovku.
+ */
 static void boot_splash_render_log(void) {
     unsigned int i;
 
@@ -97,6 +131,11 @@ static void boot_splash_render_log(void) {
     }
 }
 
+/**
+ * Přidá zprávu do logu splash obrazovky (posouvá staré zprávy).
+ *
+ * @param text Text zprávy (const char *)
+ */
 static void boot_splash_push_log(const char *text) {
     unsigned int i;
     usize n = 0;
@@ -124,6 +163,13 @@ static void boot_splash_push_log(const char *text) {
     boot_splash_render_log();
 }
 
+/**
+ * Aktualizuje splash obrazovku – progress bar a log.
+ *
+ * @param label       Název kroku (const char *)
+ * @param state       Text stavu ("Okej", "SKIP", ...) (const char *)
+ * @param state_color Barva stavu (u8)
+ */
 static void boot_splash_update(const char *label, const char *state, u8 state_color) {
     const usize bar_w = 34;
     char bar[36];
@@ -171,6 +217,13 @@ static void boot_splash_update(const char *label, const char *state, u8 state_co
     display_write_at(19, 34, pct, 0x0F, 0x00);
 }
 
+/**
+ * Vypíše stavovou zprávu ve formátu [ STAV ] zpráva.
+ *
+ * @param state       Text stavu (const char *)
+ * @param state_color Barva stavu (unsigned char)
+ * @param msg         Zpráva (const char *)
+ */
 void bootlog_state(const char *state, unsigned char state_color, const char *msg) {
     display_set_color(0x0F, 0x00);
     aster_print("[ ");
@@ -181,14 +234,30 @@ void bootlog_state(const char *state, unsigned char state_color, const char *msg
     printk("%s\n", msg ? msg : "");
 }
 
+/**
+ * Vypíše stav "HOTOVO" (zeleně) se zprávou.
+ *
+ * @param msg Zpráva (const char *)
+ */
 void bootlog_ok(const char *msg) {
     bootlog_state("HOTOVO", 0x0A, msg);
 }
 
+/**
+ * Vypíše stav "CHYBA" (červeně) se zprávou.
+ *
+ * @param msg Zpráva (const char *)
+ */
 void bootlog_error(const char *msg) {
     bootlog_state("CHYBA", 0x0C, msg);
 }
 
+/**
+ * Zahájí boot krok – vypíše jeho název.
+ * Pokud je aktivní splash, pouze přidá záznam do logu.
+ *
+ * @param label Název kroku (const char *)
+ */
 void boot_step_begin(const char *label) {
     if (g_boot_splash_active) {
         char log_line[56];
@@ -204,6 +273,14 @@ void boot_step_begin(const char *label) {
     timer_sleep_ms(100);
 }
 
+/**
+ * Dokončí boot krok – přepíše řádek na [stav] název.
+ * Pokud je aktivní splash, aktualizuje progress bar.
+ *
+ * @param label       Název kroku (const char *)
+ * @param state       Text stavu (const char *)
+ * @param state_color Barva stavu (u8)
+ */
 void boot_step_finish(const char *label, const char *state, u8 state_color) {
     if (g_boot_splash_active) {
         boot_splash_update(label, state, state_color);
@@ -218,10 +295,20 @@ void boot_step_finish(const char *label, const char *state, u8 state_color) {
     printk(" ] %s\n", label);
 }
 
+/**
+ * Dokončí boot krok se stavem "Okej" (zeleně).
+ *
+ * @param label Název kroku (const char *)
+ */
 void boot_step_ok(const char *label) {
     boot_step_finish(label, "Okej", 0x0A);
 }
 
+/**
+ * Dokončí boot krok se stavem "SKIP" (žlutě).
+ *
+ * @param label Název kroku (const char *)
+ */
 void boot_step_skip(const char *label) {
     boot_step_finish(label, "SKIP", 0x0E);
 }
@@ -230,6 +317,12 @@ void boot_step_skip(const char *label) {
 #include "keyboard.h"
 #include "statusbar.h"
 
+/**
+ * Připraví systém na vypnutí nebo restart.
+ * Ukončí session, odebere moduly, uvolní paměť a synchronizuje FS.
+ *
+ * @param typ Řetězec popisující typ ukončení ("restart", "vypnuti", ...) (const char *)
+ */
 void system_shutdown_prepare(const char *typ) {
     if (typ && typ[0]) {
         display_clear();

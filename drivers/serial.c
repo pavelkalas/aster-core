@@ -17,20 +17,41 @@
 
 static int g_serial_ready = 0;
 
+/**
+ * Zapíše bajt na I/O port.
+ *
+ * @param port  Adresa portu (u16)
+ * @param value Hodnota k zápisu (u8)
+ */
 static inline void outb(u16 port, u8 value) {
     __asm__ volatile ("outb %0, %1" : : "a"(value), "Nd"(port));
 }
 
+/**
+ * Přečte bajt z I/O portu.
+ *
+ * @param port Adresa portu (u16)
+ * @return     Přečtená hodnota (u8)
+ */
 static inline u8 inb(u16 port) {
     u8 value;
     __asm__ volatile ("inb %1, %0" : "=a"(value) : "Nd"(port));
     return value;
 }
 
+/**
+ * Zjistí, zda je sériový port připraven k použití.
+ *
+ * @return 1 pokud je připraven, jinak 0 (int)
+ */
 int serial_is_ready(void) {
     return g_serial_ready;
 }
 
+/**
+ * Inicializuje sériový port COM1 (baud rate 9600, 8N1).
+ * Otestuje funkčnost zápisem a zpětným čtením.
+ */
 void serial_init(void) {
     g_serial_ready = 0;
 
@@ -52,6 +73,12 @@ void serial_init(void) {
     g_serial_ready = 1;
 }
 
+/**
+ * Odešle jeden znak přes sériový port.
+ * Automaticky přidá '\r' před '\n'.
+ *
+ * @param c Znak k odeslání (char)
+ */
 void serial_write_char(char c) {
     u32 spin;
 
@@ -71,6 +98,11 @@ void serial_write_char(char c) {
     }
 }
 
+/**
+ * Odešle řetězec přes sériový port.
+ *
+ * @param text Řetězec k odeslání (const char *)
+ */
 void serial_write_string(const char *text) {
     if (!text) {
         return;

@@ -6,9 +6,9 @@
  */
 
 /*
- * Tento architekturalni modul inicializuje GDT, IDT a remapuje PIC.
- * Obsahuje centralni vstup pro obsluhu vyjimek, hardwarovych preruseni
- * i syscall vektoru, vcetne predani rizeni scheduleru pri timer IRQ.
+ * Tento architekturální modul inicializuje GDT, IDT a remapuje PIC.
+ * Obsahuje centrální vstup pro obsluhu výjimek, hardwarových přerušení
+ * i syscall vektoru, včetně předání řízení scheduleru při timer IRQ.
  */
 
 #include "cpu.h"
@@ -26,19 +26,23 @@ extern void *isr_stub_table[];
 
 #define IDT_ENTRIES 256
 
+/** Zapíše bajt na I/O port. */
 static inline void outb(u16 port, u8 value) {
     __asm__ volatile ("outb %0, %1" : : "a"(value), "Nd"(port));
 }
 
+/** Krátká I/O pauza pro synchronizaci. */
 static inline void io_wait(void) {
     __asm__ volatile ("outb %%al, $0x80" : : "a"(0));
 }
 
+/** Struktura ukazatele na GDT. */
 struct __attribute__((packed)) gdt_ptr {
     u16 limit;
     u64 base;
 };
 
+/** Položka IDT – 16bajtová struktura (x86_64). */
 struct __attribute__((packed)) idt_entry {
     u16 offset_low;
     u16 selector;
@@ -49,6 +53,7 @@ struct __attribute__((packed)) idt_entry {
     u32 zero;
 };
 
+/** Ukazatel na IDT (pro lidt instrukci). */
 struct __attribute__((packed)) idt_ptr {
     u16 limit;
     u64 base;
@@ -57,6 +62,13 @@ struct __attribute__((packed)) idt_ptr {
 static u64 gdt_table[3];
 static struct idt_entry idt[IDT_ENTRIES];
 
+/**
+ * Nastaví IDT gate pro daný vektor.
+ *
+ * @param vec   Číslo vektoru (u8)
+ * @param isr   Ukazatel na obsluhu (void *)
+ * @param flags Atributy (typ) (u8)
+ */
 static void set_idt_gate(u8 vec, void *isr, u8 flags) {
     u64 addr = (u64)isr;
     idt[vec].offset_low = (u16)(addr & 0xFFFF);
@@ -68,6 +80,11 @@ static void set_idt_gate(u8 vec, void *isr, u8 flags) {
     idt[vec].zero = 0;
 }
 
+/**
+ * Remapuje PIC (Programmable Interrupt Controller) z výchozích vektorů
+ * (0–15) na vektory 32–47, aby se předešlo kolizi s CPU výjimkami.
+ * Povoluje IRQ0 (časovač), IRQ1 (klávesnice) a IRQ2 (kaskáda).
+ */
 static void pic_remap(void) {
     outb(0x20, 0x11);
     io_wait();
@@ -89,17 +106,27 @@ static void pic_remap(void) {
     outb(0xA1, 0x01);
     io_wait();
 
-    /* Unmask IRQ0(timer), IRQ1(keyboard), IRQ2(cascade); keep the rest masked. */
+    /* Povolit IRQ0 (timer), IRQ1 (keyboard), IRQ2 (cascade); ostatní maskovat */
     outb(0x21, 0xF8);
     outb(0xA1, 0xFF);
 }
 
+/**
+ * Přečte hodnotu CR2 registru (obsahuje adresu při Page Fault).
+ *
+ * @return Hodnota CR2 (u64)
+ */
 static inline u64 read_cr2(void) {
     u64 value;
     __asm__ volatile ("mov %%cr2, %0" : "=r"(value));
     return value;
 }
 
+/**
+ * Odešle EOI (End Of Interrupt) signál PIC.
+ *
+ * @param vector Číslo vektoru (u64)
+ */
 static void pic_send_eoi(u64 vector) {
     if (vector >= 40) {
         outb(0xA0, 0x20);
@@ -107,6 +134,12 @@ static void pic_send_eoi(u64 vector) {
     outb(0x20, 0x20);
 }
 
+/**
+ * Vrátí název výjimky podle čísla vektoru.
+ *
+ * @param vector Číslo vektoru (u64)
+ * @return       Textový název výjimky (const char *)
+ */
 static const char *exception_name(u64 vector) {
     switch (vector) {
         case 8:
@@ -120,6 +153,11 @@ static const char *exception_name(u64 vector) {
     }
 }
 
+/**
+ * Vypíše obsah interrupt_frame_t (registry, RIP, RSP, atd.) při výjimce.
+ *
+ * @param f Ukazatel na frame (interrupt_frame_t *)
+ */
 static void dump_frame(interrupt_frame_t *f) {
     printk("[EXC] %s (vector=%u error=%x)\n", exception_name(f->vector), (u32)f->vector, (u32)f->error);
     printk("[EXC] RIP=%p CS=%p RFLAGS=%p RSP=%p SS=%p\n", (void *)f->rip, (void *)f->cs, (void *)f->rflags, (void *)f->rsp, (void *)f->ss);
@@ -133,6 +171,10 @@ static void dump_frame(interrupt_frame_t *f) {
     }
 }
 
+/**
+ * Inicializuje GDT (Global Descriptor Table).
+ * Nastavuje null descriptor, kódový segment (ring 0) a datový segment (ring 0).
+ */
 void cpu_init(void) {
     struct gdt_ptr gp;
 
@@ -147,6 +189,11 @@ void cpu_init(void) {
     arch_reload_segments();
 }
 
+/**
+ * Inicializuje IDT a PIC.
+ * Nastaví obsluhy pro vektory 0–33 (výjimky + IRQ0–IRQ1) a vektor 128 (syscall).
+ * Poté povolí přerušení (STI).
+ */
 void interrupts_init(void) {
     struct idt_ptr ip;
     u32 i;
@@ -170,6 +217,12 @@ void interrupts_init(void) {
     __asm__ volatile ("sti");
 }
 
+/**
+ * Hlavní dispatcher přerušení a výjimek.
+ * Volá se z assembly stubů po uložení registrů.
+ *
+ * @param frame Ukazatel na interrupt frame (interrupt_frame_t *)
+ */
 void interrupt_dispatch(interrupt_frame_t *frame) {
     if (frame->vector < 32) {
         dump_frame(frame);
@@ -193,6 +246,9 @@ void interrupt_dispatch(interrupt_frame_t *frame) {
     }
 }
 
+/**
+ * Zastaví CPU (zakáže přerušení a vstoupí do nekonečné smyčky HLT).
+ */
 void cpu_halt(void) {
     __asm__ volatile ("cli");
     for (;;) {

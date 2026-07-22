@@ -1,8 +1,12 @@
 /*
  * AsterOS Kernel
  * Autor: Pavel Kalas
+ * Rok: 2026
  *
- * Boot — inicializacni sekvence jadra, volana z kmain.
+ * Boot — inicializační sekvence jádra, volaná z kmain.
+ * Postupně inicializuje všechny subsystémy: display, sériový port, CPU,
+ * správce paměti, procesy, plánovač, syscally, klávesnici, časovač,
+ * disk a přerušení.
  */
 
 #include "boot.h"
@@ -23,10 +27,20 @@
 
 extern unsigned long g_timer_hz;
 
+/**
+ * Zpětné volání pro obnovení stavového řádku shellu.
+ * Voláno periodicky z klávesnicového ovladače.
+ */
 void shell_status_refresh_callback(void) {
     render_shell_statusbar();
 }
 
+/**
+ * Hlavní bootovací sekvence – postupně inicializuje všechny subsystémy:
+ * display, sériový port, CPU, správce paměti, procesy, plánovač,
+ * syscally, klávesnici, časovač, disk a přerušení.
+ * Každý krok je zalogován pomocí bootlogu.
+ */
 void boot_sequence(void) {
     display_init();
 

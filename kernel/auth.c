@@ -2,7 +2,7 @@
  * AsterOS Kernel
  * Autor: Pavel Kalas
  *
- * Auth — uzivatelska autentizace, login, sprava uzivatelu.
+ * Auth — uživatelská autentizace, login, správa uživatelů.
  */
 
 #include "auth.h"
@@ -24,12 +24,26 @@ static int g_user_count = 0;
 char g_current_user[AUTH_NAME_LEN] = "";
 usize g_current_user_size = AUTH_NAME_LEN;
 
+/**
+ * Přečte řádek z klávesnice a odstraní bílé znaky z okrajů.
+ * Výsledek uloží do `out`.
+ *
+ * @param out     Cílový buffer (char *)
+ * @param max_len Maximální délka (int)
+ */
 void auth_readline_plain(char *out, int max_len) {
     extern void trim_inplace(char *s);
     keyboard_readline(out, max_len);
     trim_inplace(out);
 }
 
+/**
+ * Přečte řádek z klávesnice, ale místo zadávaných znaků nic nevypisuje
+ * (vhodné pro hesla). Ukončuje se Enterem, Backspace maže znaky.
+ *
+ * @param out     Cílový buffer (char *)
+ * @param max_len Maximální délka (int)
+ */
 void auth_readline_secret(char *out, int max_len) {
     int i = 0;
     if (max_len <= 1) { out[0] = '\0'; return; }
@@ -42,6 +56,9 @@ void auth_readline_secret(char *out, int max_len) {
     }
 }
 
+/**
+ * Smaže všechny uživatele z interní tabulky.
+ */
 void auth_clear_users(void) {
     int i;
     for (i = 0; i < AUTH_MAX_USERS; ++i) {
@@ -51,6 +68,12 @@ void auth_clear_users(void) {
     g_user_count = 0;
 }
 
+/**
+ * Najde uživatele podle jména v interní tabulce.
+ *
+ * @param name Hledané uživatelské jméno (const char *)
+ * @return     Index v tabulce, nebo -1 pokud nebyl nalezen (int)
+ */
 int auth_find_user(const char *name) {
     int i;
     for (i = 0; i < g_user_count; ++i)
@@ -58,6 +81,13 @@ int auth_find_user(const char *name) {
     return -1;
 }
 
+/**
+ * Přidá nového uživatele do interní tabulky.
+ *
+ * @param name Uživatelské jméno (const char *)
+ * @param pass Heslo, může být NULL nebo prázdné (const char *)
+ * @return     0 při úspěchu, -1 při chybě (int)
+ */
 int auth_add_user(const char *name, const char *pass) {
     usize nlen, plen;
     if (!name || name[0] == '\0' || g_user_count >= AUTH_MAX_USERS) return -1;
@@ -75,6 +105,11 @@ int auth_add_user(const char *name, const char *pass) {
     return 0;
 }
 
+/**
+ * Uloží uživatele z interní tabulky do souboru "/.users" na disku.
+ *
+ * @return 0 při úspěchu, -1 při chybě (int)
+ */
 int auth_save_users(void) {
     char buf[4096];
     usize pos = 0;
@@ -93,6 +128,11 @@ int auth_save_users(void) {
     return asterfs_write_file(AUTH_USERS_FILE, (const u8 *)buf, (u16)pos) >= 0 ? 0 : -1;
 }
 
+/**
+ * Načte uživatele ze souboru "/.users" do interní tabulky.
+ *
+ * @return 0 při úspěchu, -1 při chybě (int)
+ */
 int auth_load_users(void) {
     char buf[4097];
     int n;
@@ -122,6 +162,13 @@ int auth_load_users(void) {
     return 0;
 }
 
+/**
+ * Nastaví nové heslo existujícímu uživateli.
+ *
+ * @param user Uživatelské jméno (const char *)
+ * @param pass Nové heslo (const char *)
+ * @return     0 při úspěchu, -1 při chybě (int)
+ */
 int auth_set_pass(const char *user, const char *pass) {
     int idx = auth_find_user(user);
     usize plen;
@@ -133,6 +180,11 @@ int auth_set_pass(const char *user, const char *pass) {
     return 0;
 }
 
+/**
+ * Najde uživatele s prázdným heslem (auto-login).
+ *
+ * @return Index uživatele, nebo -1 pokud žádný není (int)
+ */
 int auth_find_autologin_user(void) {
     int i;
     for (i = 0; i < g_user_count; ++i)
@@ -140,6 +192,12 @@ int auth_find_autologin_user(void) {
     return -1;
 }
 
+/**
+ * Zobrazí přihlašovací obrazovku.
+ * Pokud systém není nainstalován, přihlásí se jako "guest".
+ * Pokud existuje uživatel s prázdným heslem, provede auto-login.
+ * Jinak cyklicky žádá o jméno a heslo, dokud není úspěšné přihlášení.
+ */
 void auth_login_screen(void) {
     char name[AUTH_NAME_LEN], pass[AUTH_PASS_LEN];
     int auto_idx;

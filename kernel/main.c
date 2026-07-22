@@ -3,7 +3,7 @@
  * Autor: Pavel Kalas
  * Rok: 2026
  *
- * Hlavni orchestrator — boot, login, shell smycka.
+ * Hlavní orchestrator — boot, login, shell smyčka.
  */
 
 #include "auth.h"
@@ -22,6 +22,11 @@
 
 extern void boot_sequence(void);
 
+/**
+ * Hlavní vstupní bod jádra (volaný z boot assembleru).
+ * Spustí boot sekvenci, pak v nekonečné smyčce:
+ * přihlašovací obrazovka → shell → odhlášení → login.
+ */
 void kmain(void) {
     boot_sequence();
 

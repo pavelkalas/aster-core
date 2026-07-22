@@ -1,5 +1,19 @@
+/*
+ * AsterOS Kernel
+ * Autor: Pavel Kalas
+ *
+ * Jednoduché pomocné funkce pro parsování čísel z řetězců.
+ */
+
 #include "int.h"
 
+/**
+ * Převede řetězec na unsigned long (dekadicky).
+ *
+ * @param s  Řetězec s číslem (const char *)
+ * @param ok Výstup – 1 při úspěšném parsování, 0 při chybě (int *)
+ * @return   Přečtená hodnota (unsigned long)
+ */
 unsigned long parse_u32(const char *s, int *ok) {
     unsigned long value = 0;
     *ok = 0;
@@ -21,6 +35,13 @@ unsigned long parse_u32(const char *s, int *ok) {
     return value;
 }
 
+/**
+ * Převede řetězec na signed long (dekadicky, podporuje znaménko '-').
+ *
+ * @param s  Řetězec s číslem (const char *)
+ * @param ok Výstup – 1 při úspěšném parsování, 0 při chybě (int *)
+ * @return   Přečtená hodnota (long)
+ */
 long parse_i32(const char *s, int *ok) {
     int sign = 1;
     unsigned long v;

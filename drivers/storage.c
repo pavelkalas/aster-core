@@ -6,9 +6,9 @@
  */
 
 /*
- * Tento modul implementuje AsterFS nad realnym ATA diskem v QEMU.
- * Data se nahravaji pri startu a po kazde zmene se synchronizuji
- * do sektoru na druhem IDE disku, aby pretrvala mezi restarty.
+ * Tento modul implementuje AsterFS nad reálným ATA diskem v QEMU.
+ * Data se nahrávají při startu a po každé změně se synchronizují
+ * do sektorů na druhém IDE disku, aby přetrvala mezi restarty.
  */
 
 #include "storage.h"
@@ -40,6 +40,9 @@
 
 #define ASTERFS_DISK_START_LBA 1U
 
+/**
+ * Struktura superbloku AsterFS (první sektor na disku).
+ */
 typedef struct {
     char magic[8];
     u32 version;
@@ -48,6 +51,9 @@ typedef struct {
     u8 pad[512 - 8 - 4 - 4 - 4];
 } asterfs_superblock_t;
 
+/**
+ * Struktura uzlu na disku (pevná velikost, packed).
+ */
 typedef struct {
     char name[ASTERFS_NAME_LEN];
     u8 is_dir;
@@ -67,26 +73,33 @@ static int disk_ready = 0;
 static u8 g_sector_buffer[512];
 static u8 g_nodes_blob[ASTERFS_MAX_FILES * ASTERFS_NODE_BYTES];
 
+/** Zapíše bajt na I/O port. */
 static inline void outb(unsigned short port, unsigned char value) {
     __asm__ volatile ("outb %0, %1" : : "a"(value), "Nd"(port));
 }
 
+/** Přečte bajt z I/O portu. */
 static inline unsigned char inb(unsigned short port) {
     unsigned char ret;
     __asm__ volatile ("inb %1, %0" : "=a"(ret) : "Nd"(port));
     return ret;
 }
 
+/** Zapíše 16bitovou hodnotu na I/O port. */
 static inline void outw(unsigned short port, unsigned short value) {
     __asm__ volatile ("outw %0, %1" : : "a"(value), "Nd"(port));
 }
 
+/** Přečte 16bitovou hodnotu z I/O portu. */
 static inline unsigned short inw(unsigned short port) {
     unsigned short ret;
     __asm__ volatile ("inw %1, %0" : "=a"(ret) : "Nd"(port));
     return ret;
 }
 
+/**
+ * Krátké zpoždění 400 ns (4x čtení z řídicího portu).
+ */
 static void ata_delay_400ns(void) {
     (void)inb(ATA_CTRL_BASE);
     (void)inb(ATA_CTRL_BASE);
@@ -94,6 +107,11 @@ static void ata_delay_400ns(void) {
     (void)inb(ATA_CTRL_BASE);
 }
 
+/**
+ * Čeká, dokud není ATA zařízení připraveno (bit BSY = 0).
+ *
+ * @return 0 při úspěchu, -1 při timeoutu (int)
+ */
 static int ata_wait_not_busy(void) {
     unsigned int timeout = 200000U;
     while (timeout-- > 0) {
@@ -108,6 +126,11 @@ static int ata_wait_not_busy(void) {
     return -1;
 }
 
+/**
+ * Čeká, dokud není připravena data (DRQ) a není hlášena chyba.
+ *
+ * @return 0 při úspěchu, -1 při chybě nebo timeoutu (int)
+ */
 static int ata_wait_drq(void) {
     unsigned int timeout = 200000U;
     while (timeout-- > 0) {
@@ -125,6 +148,12 @@ static int ata_wait_drq(void) {
     return -1;
 }
 
+/**
+ * Vybere ATA slave disk a nastaví LBA.
+ *
+ * @param lba LBA adresa (u32)
+ * @return    0 při úspěchu, -1 při chybě (int)
+ */
 static int ata_select_drive_lba(u32 lba) {
     if (ata_wait_not_busy() != 0) {
         return -1;
@@ -135,6 +164,11 @@ static int ata_select_drive_lba(u32 lba) {
     return 0;
 }
 
+/**
+ * Otestuje, zda je slave ATA disk přítomen a reaguje.
+ *
+ * @return 0 při úspěchu, -1 pokud disk není přítomen (int)
+ */
 static int ata_probe_slave(void) {
     unsigned char s;
 
@@ -149,6 +183,13 @@ static int ata_probe_slave(void) {
     return ata_wait_not_busy();
 }
 
+/**
+ * Přečte jeden sektor (512 B) z ATA disku do bufferu.
+ *
+ * @param lba    LBA adresa (u32)
+ * @param buf512 Cílový buffer (512 B) (u8 *)
+ * @return       0 při úspěchu, -1 při chybě (int)
+ */
 static int ata_read_sector(u32 lba, u8 *buf512) {
     int i;
 
@@ -179,6 +220,13 @@ static int ata_read_sector(u32 lba, u8 *buf512) {
     return 0;
 }
 
+/**
+ * Zapíše jeden sektor (512 B) na ATA disk.
+ *
+ * @param lba    LBA adresa (u32)
+ * @param buf512 Zdrojový buffer (512 B) (const u8 *)
+ * @return       0 při úspěchu, -1 při chybě (int)
+ */
 static int ata_write_sector(u32 lba, const u8 *buf512) {
     int i;
 
@@ -213,6 +261,9 @@ static int ata_write_sector(u32 lba, const u8 *buf512) {
     return 0;
 }
 
+/**
+ * Resetuje FS v paměti – vynuluje všechny uzly.
+ */
 static void fs_reset_memory(void) {
     int i;
 
@@ -225,6 +276,9 @@ static void fs_reset_memory(void) {
     nodes_used = 0;
 }
 
+/**
+ * Zakóduje pole uzlů do binárního blobu pro zápis na disk.
+ */
 static void fs_encode_nodes(void) {
     int i;
 
@@ -246,6 +300,9 @@ static void fs_encode_nodes(void) {
     }
 }
 
+/**
+ * Dekóduje binární blob z disku do pole uzlů v paměti.
+ */
 static void fs_decode_nodes(void) {
     int i;
 
@@ -279,6 +336,11 @@ static void fs_decode_nodes(void) {
     }
 }
 
+/**
+ * Zapíše celý filesystem (superblok + uzly) na disk.
+ *
+ * @return 0 při úspěchu, -1 při chybě (int)
+ */
 static int fs_flush_disk(void) {
     asterfs_superblock_t super;
     unsigned int sector;
@@ -316,6 +378,11 @@ static int fs_flush_disk(void) {
     return 0;
 }
 
+/**
+ * Načte filesystem z disku (superblok + uzly) do paměti.
+ *
+ * @return 0 při úspěchu, -1 při chybě (int)
+ */
 static int fs_load_disk(void) {
     asterfs_superblock_t super;
     unsigned int sector;
@@ -358,10 +425,22 @@ static int fs_load_disk(void) {
     return 0;
 }
 
+/**
+ * Zjistí, zda je cesta kořen "/".
+ *
+ * @param path Cesta (const char *)
+ * @return     1 pokud je kořen, jinak 0 (int)
+ */
 static int is_root(const char *path) {
     return path && path[0] == '/' && path[1] == '\0';
 }
 
+/**
+ * Ověří, že cesta je platná (začíná '/' a má správnou délku).
+ *
+ * @param path Cesta (const char *)
+ * @return     1 pokud je platná, jinak 0 (int)
+ */
 static int path_is_valid(const char *path) {
     usize len;
 
@@ -377,6 +456,12 @@ static int path_is_valid(const char *path) {
     return path[0] == '/';
 }
 
+/**
+ * Zjistí, zda nadřazený adresář dané cesty existuje.
+ *
+ * @param path Cesta (const char *)
+ * @return     1 pokud rodič existuje (nebo jde o kořen), jinak 0 (int)
+ */
 static int path_parent_exists(const char *path) {
     int i;
     int last = -1;
@@ -412,6 +497,15 @@ static int path_parent_exists(const char *path) {
     return 0;
 }
 
+/**
+ * Zjistí, zda je cesta `path` přímým potomkem adresáře `parent`.
+ * Pokud ano, nastaví *leaf_start na začátek názvu potomka.
+ *
+ * @param parent     Rodičovská cesta (const char *)
+ * @param path       Cesta k testování (const char *)
+ * @param leaf_start Výstup – začátek názvu potomka (const char **)
+ * @return           1 pokud je přímý potomek, jinak 0 (int)
+ */
 static int path_is_child(const char *parent, const char *path, const char **leaf_start) {
     usize parent_len;
     const char *rest;
@@ -467,10 +561,17 @@ static int path_is_child(const char *parent, const char *path, const char **leaf
     return 1;
 }
 
+/**
+ * Inicializuje úložiště – zavolá asterfs_init().
+ */
 void storage_init(void) {
     asterfs_init();
 }
 
+/**
+ * Inicializuje AsterFS – detekuje disk a načte data.
+ * Pokud disk není připraven, zkusí to několikrát s prodlevou.
+ */
 void asterfs_init(void) {
     int retries = 8;
 
@@ -482,7 +583,7 @@ void asterfs_init(void) {
         if (disk_ready) {
             break;
         }
-        /* Pockej nez QEMU inicializuje slave disk */
+        /* Počkej než QEMU inicializuje slave disk */
         {
             volatile unsigned long i;
             for (i = 0; i < 5000000UL; ++i) {
@@ -501,6 +602,12 @@ void asterfs_init(void) {
     }
 }
 
+/**
+ * Najde uzel podle názvu (cesty) v poli nodes.
+ *
+ * @param name Název/plná cesta (const char *)
+ * @return     Index uzlu, nebo -1 pokud neexistuje (int)
+ */
 static int find_node(const char *name) {
     int i;
 
@@ -521,6 +628,12 @@ static int find_node(const char *name) {
     return -1;
 }
 
+/**
+ * Vytvoří nový soubor.
+ *
+ * @param name Cesta (const char *)
+ * @return     0 při úspěchu, -1 při chybě (int)
+ */
 int asterfs_create_file(const char *name) {
     usize len;
 
@@ -553,6 +666,12 @@ int asterfs_create_file(const char *name) {
     return 0;
 }
 
+/**
+ * Vytvoří nový adresář.
+ *
+ * @param name Cesta (const char *)
+ * @return     0 při úspěchu, -1 při chybě (int)
+ */
 int asterfs_create_dir(const char *name) {
     usize len;
 
@@ -585,6 +704,12 @@ int asterfs_create_dir(const char *name) {
     return 0;
 }
 
+/**
+ * Smaže soubor.
+ *
+ * @param name Cesta (const char *)
+ * @return     0 při úspěchu, -1 při chybě (int)
+ */
 int asterfs_remove_file(const char *name) {
     int idx;
     int i;
@@ -609,6 +734,12 @@ int asterfs_remove_file(const char *name) {
     return 0;
 }
 
+/**
+ * Smaže adresář (musí být prázdný).
+ *
+ * @param name Cesta (const char *)
+ * @return     0 při úspěchu, -1 pokud není prázdný nebo jiná chyba (int)
+ */
 int asterfs_remove_dir(const char *name) {
     int idx;
     int i;
@@ -644,6 +775,14 @@ int asterfs_remove_dir(const char *name) {
     return 0;
 }
 
+/**
+ * Zapíše data do souboru. Pokud soubor neexistuje, vytvoří ho.
+ *
+ * @param name Cesta (const char *)
+ * @param data Data k zápisu (const u8 *)
+ * @param len  Délka dat (u16)
+ * @return     Počet zapsaných bajtů, nebo -1 při chybě (int)
+ */
 int asterfs_write_file(const char *name, const u8 *data, u16 len) {
     int idx;
 
@@ -687,10 +826,23 @@ int asterfs_write_file(const char *name, const u8 *data, u16 len) {
     return len;
 }
 
+/**
+ * Synchronizuje FS na disk.
+ *
+ * @return 0 při úspěchu, -1 při chybě (int)
+ */
 int asterfs_sync(void) {
     return fs_flush_disk();
 }
 
+/**
+ * Přečte obsah souboru do bufferu.
+ *
+ * @param name    Cesta (const char *)
+ * @param out     Cílový buffer (u8 *)
+ * @param max_len Maximální délka (u16)
+ * @return        Počet přečtených bajtů, nebo -1 (int)
+ */
 int asterfs_read_file(const char *name, u8 *out, u16 max_len) {
     int idx;
     u16 len;
@@ -713,6 +865,11 @@ int asterfs_read_file(const char *name, u8 *out, u16 max_len) {
     return len;
 }
 
+/**
+ * Projde všechny uzly FS a zavolá callback pro každý z nich.
+ *
+ * @param cb Zpětné volání (void (*)(const char *, u8, u16))
+ */
 void asterfs_list(void (*cb)(const char *name, u8 is_dir, u16 size)) {
     int i;
 
@@ -729,6 +886,12 @@ void asterfs_list(void (*cb)(const char *name, u8 is_dir, u16 size)) {
     }
 }
 
+/**
+ * Získá typ uzlu (0 = soubor, 1 = adresář, -1 = neexistuje).
+ *
+ * @param name Cesta (const char *)
+ * @return     Typ (int)
+ */
 int asterfs_get_type(const char *name) {
     int idx;
 
@@ -744,6 +907,13 @@ int asterfs_get_type(const char *name) {
     return nodes[idx].is_dir ? 1 : 0;
 }
 
+/**
+ * Vypíše obsah adresáře – zavolá callback pro každou položku,
+ * která je přímým potomkem zadané cesty.
+ *
+ * @param path Cesta k adresáři (const char *)
+ * @param cb   Zpětné volání (void (*)(const char *, u8, u16))
+ */
 void asterfs_list_dir(const char *path, void (*cb)(const char *name, u8 is_dir, u16 size)) {
     int i;
     const char *leaf = 0;

@@ -2,7 +2,7 @@
  * AsterOS Kernel
  * Autor: Pavel Kalas
  *
- * File manager — graficky pruzkumnik souboroveho systemu.
+ * File manager — grafický průzkumník souborového systému.
  */
 
 #include "fm.h"
@@ -27,6 +27,13 @@ static u8 g_fm_types[FM_MAX_ENTRIES];
 static u16 g_fm_sizes[FM_MAX_ENTRIES];
 static int g_fm_count = 0;
 
+/**
+ * Zpětné volání pro sběr položek adresáře – ukládá název, typ a velikost.
+ *
+ * @param name   Název položky (const char *)
+ * @param is_dir 1 pro adresář, 0 pro soubor (u8)
+ * @param size   Velikost v bajtech (u16)
+ */
 static void fm_collect_cb(const char *name, u8 is_dir, u16 size) {
     usize n;
     if (g_fm_count >= FM_MAX_ENTRIES) return;
@@ -39,6 +46,11 @@ static void fm_collect_cb(const char *name, u8 is_dir, u16 size) {
     ++g_fm_count;
 }
 
+/**
+ * Načte obsah adresáře do interních polí.
+ *
+ * @param path Cesta k adresáři (const char *)
+ */
 static void fm_load_dir(const char *path) {
     int i;
     g_fm_count = 0;
@@ -50,6 +62,11 @@ static void fm_load_dir(const char *path) {
     asterfs_list_dir(path, fm_collect_cb);
 }
 
+/**
+ * Zobrazí náhled souboru (prvních 4096 bajtů).
+ *
+ * @param path Cesta k souboru (const char *)
+ */
 static void fm_preview_file(const char *path) {
     u8 buf[4096];
     int n = asterfs_read_file(path, buf, 4096);
@@ -65,6 +82,13 @@ static void fm_preview_file(const char *path) {
     (void)keyboard_read_key();
 }
 
+/**
+ * Vykreslí obrazovku file manageru – seznam souborů a adresářů.
+ *
+ * @param cwd      Aktuální adresář (const char *)
+ * @param selected Index vybrané položky (int)
+ * @param top      Index první zobrazené položky (pro scrollování) (int)
+ */
 static void fm_draw(const char *cwd, int selected, int top) {
     int i;
     display_set_color(0x0E, 0);
@@ -88,6 +112,12 @@ static void fm_draw(const char *cwd, int selected, int top) {
     render_shell_statusbar();
 }
 
+/**
+ * Nastaví text v marquee na základě vybrané položky v aktuálním adresáři.
+ *
+ * @param cwd      Aktuální adresář (const char *)
+ * @param selected Index vybrané položky (int)
+ */
 static void fm_set_selection_marquee(const char *cwd, int selected) {
     char text[120];
     usize p = 0;
@@ -114,6 +144,11 @@ static void fm_set_selection_marquee(const char *cwd, int selected) {
 
 extern char g_cwd[64];
 
+/**
+ * Spustí interaktivní file manager.
+ * Umožňuje procházení adresářů, otevírání souborů (ENTER),
+ * editaci (E), mazání (D) a návrat zpět (BACKSPACE).
+ */
 void run_file_manager(void) {
     char fm_cwd[64], last_cwd[64];
     int selected = 0, last_selected = -1, top = 0;

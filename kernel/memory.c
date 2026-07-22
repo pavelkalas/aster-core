@@ -6,9 +6,9 @@
  */
 
 /*
- * Tento modul realizuje dve vrstvy spravy pameti jadra.
- * Prvni cast je bitmap allocator fyzickych stranek pro page_alloc/page_free,
- * druha cast je jednoducha linearni heap alokace pro kernelove objekty.
+ * Tento modul realizuje dvě vrstvy správy paměti jádra.
+ * První část je bitmap allocator fyzických stránek pro page_alloc/page_free,
+ * druhá část je jednoduchá lineární heap alokace pro kernelové objekty.
  */
 
 #include "memory.h"
@@ -25,18 +25,38 @@ static usize free_pages = PMM_MAX_PAGES;
 static u8 kernel_heap[KHEAP_SIZE];
 static usize heap_offset = 0;
 
+/**
+ * Nastaví bit v bitmapě stránek (označí stránku jako obsazenou).
+ *
+ * @param idx Index stránky (usize)
+ */
 static void bitmap_set(usize idx) {
     page_bitmap[idx / 8] |= (u8)(1u << (idx % 8));
 }
 
+/**
+ * Vymaže bit v bitmapě stránek (označí stránku jako volnou).
+ *
+ * @param idx Index stránky (usize)
+ */
 static void bitmap_clear(usize idx) {
     page_bitmap[idx / 8] &= (u8)~(1u << (idx % 8));
 }
 
+/**
+ * Otestuje, zda je stránka obsazená.
+ *
+ * @param idx Index stránky (usize)
+ * @return    Nenulová hodnota pokud je stránka obsazená, jinak 0 (int)
+ */
 static int bitmap_test(usize idx) {
     return (page_bitmap[idx / 8] & (u8)(1u << (idx % 8))) != 0;
 }
 
+/**
+ * Inicializuje správce paměti – vynuluje bitmapu, nastaví počet volných stránek
+ * a rezervuje prvních 256 stránek (pro jádro a bootovací data).
+ */
 void memory_init(void) {
     aster_memset(page_bitmap, 0, PMM_BITMAP_SIZE);
     free_pages = PMM_MAX_PAGES;
@@ -48,6 +68,12 @@ void memory_init(void) {
     }
 }
 
+/**
+ * Alokuje jednu fyzickou stránku (4 KiB).
+ * Prohledává bitmapu a vrací adresu první volné stránky.
+ *
+ * @return Ukazatel na začátek stránky, nebo NULL pokud není volná paměť (void *)
+ */
 void *page_alloc(void) {
     usize i;
 
@@ -62,6 +88,11 @@ void *page_alloc(void) {
     return 0;
 }
 
+/**
+ * Uvolní dříve alokovanou fyzickou stránku.
+ *
+ * @param page Ukazatel na stránku (void *)
+ */
 void page_free(void *page) {
     usize idx;
 
@@ -76,6 +107,13 @@ void page_free(void *page) {
     }
 }
 
+/**
+ * Alokuje paměť na kernelové haldě (lineární alokace – bez dealokace).
+ * Velikost je zaokrouhlena nahoru na 16 bajtů.
+ *
+ * @param size Požadovaná velikost v bajtech (usize)
+ * @return     Ukazatel na alokovanou paměť, nebo NULL při nedostatku místa (void *)
+ */
 void *kmalloc(usize size) {
     usize aligned;
 
@@ -93,14 +131,29 @@ void *kmalloc(usize size) {
     return ptr;
 }
 
+/**
+ "Uvolní" paměť na kernelové haldě (v této implementaci nedělá nic).
+ *
+ * @param ptr Ukazatel na paměť (void *)
+ */
 void kfree(void *ptr) {
     (void)ptr;
 }
 
+/**
+ * Vrátí celkový počet fyzických stránek.
+ *
+ * @return Počet stránek (usize)
+ */
 usize memory_total_pages(void) {
     return PMM_MAX_PAGES;
 }
 
+/**
+ * Vrátí počet volných fyzických stránek.
+ *
+ * @return Počet volných stránek (usize)
+ */
 usize memory_free_pages(void) {
     return free_pages;
 }
