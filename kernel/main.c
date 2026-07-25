@@ -32,7 +32,6 @@ void kmain(void) {
 
     for (;;) {
         auth_login_screen();
-        ensure_aliases_file();
         display_clear();
 
         if (system_is_installed()) {

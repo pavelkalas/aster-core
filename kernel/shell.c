@@ -27,7 +27,6 @@
 #include "timer.h"
 #include "types.h"
 
-#define ALIASES_FILE "/.aliases"
 #define SCREEN_W 80
 #define SCREEN_H 25
 
@@ -44,9 +43,9 @@ static const char g_help_lines[][80] = {
     "help [stranka]        - napoveda po strankach",
     "helpall               - interaktivni help Enter/Q",
     "info                  - informace o jadru",
-    "memory|mem            - stav pameti",
-    "process|ps            - seznam procesu",
-    "clear|cls             - vycistit obrazovku",
+    "memory                - stav pameti",
+    "process               - seznam procesu",
+    "clear                 - vycistit obrazovku",
     "ls                    - vypis aktualni slozky",
     "cd filename           - zmena slozky",
     "makdir filename       - vytvorit slozku",
@@ -57,7 +56,7 @@ static const char g_help_lines[][80] = {
     "remfile filename      - smazat soubor",
     "movfile src dst       - presun souboru",
     "copfile src dst       - kopie souboru",
-    "cat|read filename     - obsah souboru",
+    "read filename         - obsah souboru",
     "write filename text   - zapis textu",
     "install               - instalace systemu na disk",
     "fm                    - file manager",
@@ -189,76 +188,6 @@ static void shell_processes(void) {
         if (p->state == PROCESS_EXITED) state = "EXIT";
         printk("pid=%d state=%s prio=%d name=%s\n", (int)p->pid, state, (int)p->priority, p->name ? p->name : "-");
     }
-}
-
-/**
- * Zjistí, zda se řetězec cmd shoduje s názvem aliasu dané délky.
- *
- * @param start Začátek názvu aliasu (const char *)
- * @param len   Délka názvu (usize)
- * @param cmd   Porovnávaný příkaz (const char *)
- * @return      1 pokud se shoduje, jinak 0 (int)
- */
-static int alias_name_equals(const char *start, usize len, const char *cmd) {
-    usize i = 0;
-    while (cmd[i] && i < len) { if (start[i] != cmd[i]) return 0; ++i; }
-    return i == len && cmd[i] == '\0';
-}
-
-/**
- * Vyhledá alias pro daný příkaz v souboru "/.aliases".
- *
- * @param cmd      Příkaz k vyhledání (const char *)
- * @param out      Buffer pro výsledek aliasu (char *)
- * @param out_size Velikost bufferu (usize)
- * @return         1 pokud alias existuje a byl naplněn, jinak 0 (int)
- */
-static int alias_lookup(const char *cmd, char *out, usize out_size) {
-    char buf[4096];
-    int n = asterfs_read_file(ALIASES_FILE, (u8 *)buf, 4096);
-    usize i = 0;
-    if (!cmd || !out || out_size == 0 || n < 0) return 0;
-    buf[n] = '\0';
-    while (i < (usize)n) {
-        usize line_start = i, name_len = 0, val_start = 0, val_end = 0, p;
-        while (i < (usize)n && buf[i] != '\n') ++i;
-        p = line_start;
-        while (p < (usize)n && (buf[p] == ' ' || buf[p] == '\t')) ++p;
-        if (p < (usize)n && buf[p] != '#' && buf[p] != '\n') {
-            usize name_start = p;
-            while (p < (usize)n && buf[p] != '=' && buf[p] != '\n') ++p;
-            if (p < (usize)n && buf[p] == '=') {
-                name_len = p - name_start;
-                val_start = p + 1; val_end = i;
-                while (name_len > 0 && (buf[name_start + name_len - 1] == ' ' || buf[name_start + name_len - 1] == '\t')) --name_len;
-                while (val_start < val_end && (buf[val_start] == ' ' || buf[val_start] == '\t')) ++val_start;
-                while (val_end > val_start && (buf[val_end - 1] == ' ' || buf[val_end - 1] == '\t' || buf[val_end - 1] == '\r')) --val_end;
-                if (name_len > 0 && val_end > val_start && alias_name_equals(&buf[name_start], name_len, cmd)) {
-                    usize out_len = val_end - val_start;
-                    if (out_len + 1 > out_size) out_len = out_size - 1;
-                    aster_memcpy(out, &buf[val_start], out_len);
-                    out[out_len] = '\0';
-                    return 1;
-                }
-            }
-        }
-        if (i < (usize)n && buf[i] == '\n') ++i;
-    }
-    return 0;
-}
-
-/**
- * Zajistí existenci souboru s aliasy. Pokud neexistuje, vytvoří ho
- * s výchozí sadou aliasů.
- */
-void ensure_aliases_file(void) {
-    static const char defaults[] =
-        "ver=info\nmem=memory\nps=process\ncls=clear\ndir=ls\n"
-        "md=makdir\nrd=remdir\ntouch=makfile\ndel=remfile\n"
-        "copy=copfile\nmove=movfile\nread=cat\ntype=cat\nhalt=shutdown\n";
-    if (asterfs_get_type(ALIASES_FILE) >= 0) return;
-    if (asterfs_create_file(ALIASES_FILE) != 0) return;
-    (void)asterfs_write_file(ALIASES_FILE, (const u8 *)defaults, (u16)(sizeof(defaults) - 1));
 }
 
 /**
@@ -400,7 +329,6 @@ static void cmd_setup_install(void) {
     p = aster_strlen(setup_user);
     if (p >= sizeof(g_current_user)) p = sizeof(g_current_user) - 1;
     aster_memcpy(g_current_user, setup_user, p);
-    ensure_aliases_file();
 
     aster_print("Setup complete: system nainstalovan na disk\n");
     aster_print("Restartovat system nyni? [y/N] ");
@@ -423,7 +351,6 @@ static void cmd_setup_install(void) {
 void shell_loop(void) {
     char line[128];
     char full[64];
-    char aliased_cmd[32];
     char *cursor, *cmd, *arg1, *arg2;
     const char *exec_cmd;
 
@@ -437,9 +364,7 @@ void shell_loop(void) {
         if (!cmd) continue;
 
         exec_cmd = cmd;
-        if (alias_lookup(cmd, aliased_cmd, sizeof(aliased_cmd)))
-            exec_cmd = aliased_cmd;
-
+        
         if (aster_strcmp(exec_cmd, "help") == 0) {
             arg1 = next_token(&cursor);
             if (arg1) {
@@ -541,7 +466,7 @@ void shell_loop(void) {
             if (fs_copy_file_abs(src, dst) != 0) { print_error("Chyba kopie"); continue; }
             if (is_move && asterfs_remove_file(src) != 0) { print_error("Chyba remove"); continue; }
             aster_print("OK\n");
-        } else if (aster_strcmp(exec_cmd, "cat") == 0) {
+        } else if (aster_strcmp(exec_cmd, "read") == 0) {
             u8 buf[4096]; int n;
             arg1 = next_token(&cursor);
             if (!arg1) print_error("Pouziti: read <filename>");
@@ -594,8 +519,8 @@ void shell_loop(void) {
         else if (exec_cmd[0] == '.' && exec_cmd[1] == '/' && exec_cmd[2] != '\0') {
             resolve_path(exec_cmd + 2, full, sizeof(full)); run_c_like_script(full);
         } else if (aster_strcmp(exec_cmd, "reboot") == 0) cmd_reboot();
-        else if (aster_strcmp(exec_cmd, "shutdown") == 0) cmd_shutdown_();
+        else if (aster_strcmp(exec_cmd, "halt") == 0) cmd_shutdown_();
         else if (run_sysapp_by_name(exec_cmd) == 0) continue;
-        else print_error("Neznamy prikaz. Zadej help.");
+        else print_error("Neznamy prikaz. Zadej help.\n");
     }
 }

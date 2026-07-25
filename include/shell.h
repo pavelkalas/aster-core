@@ -20,9 +20,6 @@ void shell_loop(void);
 /** Zobrazí banner AsterOS s volitelným podtitulem. */
 void show_aster_banner(const char *subtitle);
 
-/** Zajistí existenci souboru s aliasy. */
-void ensure_aliases_file(void);
-
 /** Vypíše chybovou hlášku červeně. */
 void print_error(const char *msg);
 
