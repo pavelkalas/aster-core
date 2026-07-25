@@ -164,4 +164,115 @@ int aster_api_str_starts_with(const char *text, const char *prefix);
 int aster_api_app_run(const aster_api_app_callbacks_t *callbacks, void *user, u32 target_fps);
 void aster_api_app_request_close(void);
 
+/*
+ * Sysapp argument API – čtení argumentů předaných shellem.
+ */
+
+/** Vrátí počet argumentů předaných sysapp. */
+int aster_api_get_argc(void);
+
+/** Vrátí argument na daném indexu (nebo NULL). */
+const char *aster_api_get_argv(int i);
+
+/*
+ * Shell state API – práce s aktuálním adresářem a uživatelem.
+ */
+
+/** Získá aktuální pracovní adresář. */
+int aster_api_get_cwd(char *out, usize max);
+
+/** Nastaví aktuální pracovní adresář. */
+int aster_api_set_cwd(const char *path);
+
+/** Získá jméno přihlášeného uživatele. */
+int aster_api_get_current_user(char *out, usize max);
+
+/** Požádá shell o ukončení smyčky (logout). */
+void aster_api_shell_exit(void);
+
+/*
+ * Systémové API – restart a vypnutí.
+ */
+
+/** Restartuje systém. */
+void aster_api_reboot(void);
+
+/** Vypne systém. */
+void aster_api_shutdown(void);
+
+/*
+ * Path utility API – překlad relativních cest.
+ */
+
+/** Přeloží relativní cestu na absolutní (vůči g_cwd). */
+void aster_api_resolve_path(const char *name, char *out, usize out_size);
+
+/** Vrátí název souboru/adresáře z cesty (za posledním '/'). */
+const char *aster_api_path_basename(const char *path);
+
+/*
+ * FS copy/move API.
+ */
+
+/** Zkopíruje soubor. */
+int aster_api_copy_file(const char *src, const char *dst);
+
+/** Zkopíruje adresář (volitelně rekurzivně). */
+int aster_api_copy_dir(const char *src, const char *dst, int recursive);
+
+/** Rekurzivně smaže adresářový strom. */
+int aster_api_remove_tree(const char *root);
+
+/*
+ * Auth API – správa uživatelů.
+ */
+
+/** Přečte řádek textu z klávesnice (viditelný). */
+void aster_api_readline_plain(char *out, int max_len);
+
+/** Přečte řádek textu z klávesnice (neviditelný, pro hesla). */
+void aster_api_readline_secret(char *out, int max_len);
+
+/** Přidá uživatele. */
+int aster_api_user_add(const char *name, const char *pass);
+
+/** Uloží uživatele na disk. */
+int aster_api_user_save(void);
+
+/** Nastaví heslo uživatele. */
+int aster_api_user_set_pass(const char *user, const char *pass);
+
+/** Najde uživatele podle jména (vrátí index nebo -1). */
+int aster_api_user_find(const char *name);
+
+/*
+ * Editor / File Manager API.
+ */
+
+/** Spustí textový editor pro daný soubor. */
+void aster_api_edit_file(const char *path);
+
+/** Spustí interaktivní file manager. */
+void aster_api_run_file_manager(void);
+
+/*
+ * Install helpers.
+ */
+
+/** Zajistí existenci adresáře. */
+int aster_api_fs_ensure_dir(const char *path);
+
+/** Zajistí existenci textového souboru s obsahem. */
+int aster_api_fs_ensure_file_text(const char *path, const char *text);
+
+/** Zjistí, zda je systém nainstalován. */
+int aster_api_system_is_installed(void);
+
+/*
+ * Status bar API.
+ */
+
+/** Překreslí spodní stavový řádek shellu. */
+void aster_api_render_statusbar(void);
+
 #endif
