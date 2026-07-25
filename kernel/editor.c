@@ -36,7 +36,7 @@ static void editor_redraw(const char *path, const char *buf, usize len, usize po
     display_set_color(0x0F, 0x00);
     display_clear();
     display_set_color(0x0F, 0x00);
-    printk("EDITOR | file: %s | line: %u", path, (unsigned int)line);
+    printk("Textovy editor | soubor: %s | radek: %u", path, (unsigned int)line);
     display_set_color(0x0F, 0x00);
     aster_print("\n\n");
 
@@ -73,7 +73,7 @@ void shell_edit_file(const char *path) {
     unsigned long shift_interval = 10;
     char title[120];
     usize tp = 0;
-    const char *prefix = "* Upravovani souboru:";
+    const char *prefix = "Upravovani souboru: ";
     const char *base = path_basename(path);
     usize bi = 0;
 
@@ -90,7 +90,7 @@ void shell_edit_file(const char *path) {
     }
     len = (usize)n; buf[len] = '\0'; pos = len;
     g_status_marquee_only = 1;
-    status_set_left_hint("Ctrl+S = ulozit | ESC = uzavrit");
+    status_set_left_hint("Ctrl + S = ulozit | ESC = uzavrit");
     status_set_marquee(title);
     editor_redraw(path, buf, len, pos);
 
