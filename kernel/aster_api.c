@@ -12,19 +12,41 @@
  */
 
 #include "aster_api.h"
+#include "auth.h"
+#include "bootlog.h"
 #include "drivers.h"
 #include "display.h"
+#include "editor.h"
+#include "fm.h"
+#include "fs_utils.h"
+#include "io_ports.h"
 #include "memory.h"
 #include "process.h"
 #include "scheduler.h"
+#include "statusbar.h"
 #include "storage.h"
 #include "string.h"
+#include "sysapps_runtime.h"
 #include "syscall.h"
 #include "timer.h"
 
 static aster_api_dirent_cb g_list_cb = 0;
 static void *g_list_user = 0;
 static int g_app_should_close = 0;
+
+/* Globální proměnné pro předávání argumentů sysappům. */
+int   g_sysapp_argc = 0;
+char *g_sysapp_argv[SYSAPP_MAX_ARGS];
+int   g_shell_should_exit = 0;
+
+int sysapp_get_argc(void) {
+    return g_sysapp_argc;
+}
+
+const char *sysapp_get_argv(int i) {
+    if (i < 0 || i >= g_sysapp_argc) return 0;
+    return g_sysapp_argv[i];
+}
 
 /**
  * Omezí hodnotu `v` na rozsah <min_v, max_v>.
@@ -814,4 +836,171 @@ int aster_api_app_run(const aster_api_app_callbacks_t *callbacks, void *user, u3
  */
 void aster_api_app_request_close(void) {
     g_app_should_close = 1;
+}
+
+/*
+ * Sysapp argument API – čtení argumentů předaných shellem.
+ */
+
+int aster_api_get_argc(void) {
+    return sysapp_get_argc();
+}
+
+const char *aster_api_get_argv(int i) {
+    return sysapp_get_argv(i);
+}
+
+/*
+ * Shell state API – práce s aktuálním adresářem a uživatelem.
+ */
+
+extern char g_cwd[64];
+extern char g_current_user[32];
+
+int aster_api_get_cwd(char *out, usize max) {
+    usize len;
+    if (!out || max == 0) return ASTER_API_ERR_INVALID;
+    len = aster_strlen(g_cwd);
+    if (len >= max) len = max - 1;
+    aster_memcpy(out, g_cwd, len);
+    out[len] = '\0';
+    return ASTER_API_OK;
+}
+
+int aster_api_set_cwd(const char *path) {
+    usize len;
+    if (!path) return ASTER_API_ERR_INVALID;
+    len = aster_strlen(path);
+    if (len >= sizeof(g_cwd)) return ASTER_API_ERR_NO_SPACE;
+    aster_memset(g_cwd, 0, sizeof(g_cwd));
+    aster_memcpy(g_cwd, path, len);
+    return ASTER_API_OK;
+}
+
+int aster_api_get_current_user(char *out, usize max) {
+    usize len;
+    if (!out || max == 0) return ASTER_API_ERR_INVALID;
+    len = aster_strlen(g_current_user);
+    if (len >= max) len = max - 1;
+    aster_memcpy(out, g_current_user, len);
+    out[len] = '\0';
+    return ASTER_API_OK;
+}
+
+void aster_api_shell_exit(void) {
+    g_shell_should_exit = 1;
+}
+
+/*
+ * Systémové API – restart a vypnutí systému.
+ */
+
+void aster_api_reboot(void) {
+    system_shutdown_prepare("restartovan");
+    boot_step_begin("Resetovani hardwaru");
+    __asm__ volatile ("cli");
+    if (kbc_wait_input_clear()) outb(0x64, 0xFE);
+    outb(0xCF9, 0x02); outb(0xCF9, 0x06);
+    for (;;) __asm__ volatile ("hlt");
+}
+
+void aster_api_shutdown(void) {
+    system_shutdown_prepare("vypnut");
+    boot_step_begin("Vypnuti hardwaru");
+    __asm__ volatile ("cli");
+    outw(0x604, 0x2000); outw(0xB004, 0x2000);
+    outw(0x4004, 0x3400); outw(0x0604, 0x2000);
+    for (;;) __asm__ volatile ("hlt");
+}
+
+/*
+ * Path utility API – překlad relativních cest.
+ */
+
+void aster_api_resolve_path(const char *name, char *out, usize out_size) {
+    resolve_path(name, out, out_size);
+}
+
+const char *aster_api_path_basename(const char *path) {
+    return path_basename(path);
+}
+
+/*
+ * FS copy/move API – kopírování a mazání souborů a adresářů.
+ */
+
+int aster_api_copy_file(const char *src, const char *dst) {
+    return fs_copy_file_abs(src, dst);
+}
+
+int aster_api_copy_dir(const char *src, const char *dst, int recursive) {
+    return fs_copy_dir_abs(src, dst, recursive);
+}
+
+int aster_api_remove_tree(const char *root) {
+    return fs_remove_tree_abs(root);
+}
+
+/*
+ * Auth API – správa uživatelů.
+ */
+
+void aster_api_readline_plain(char *out, int max_len) {
+    auth_readline_plain(out, max_len);
+}
+
+void aster_api_readline_secret(char *out, int max_len) {
+    auth_readline_secret(out, max_len);
+}
+
+int aster_api_user_add(const char *name, const char *pass) {
+    return auth_add_user(name, pass);
+}
+
+int aster_api_user_save(void) {
+    return auth_save_users();
+}
+
+int aster_api_user_set_pass(const char *user, const char *pass) {
+    return auth_set_pass(user, pass);
+}
+
+int aster_api_user_find(const char *name) {
+    return auth_find_user(name);
+}
+
+/*
+ * Editor / FM API – textový editor a file manager.
+ */
+
+void aster_api_edit_file(const char *path) {
+    shell_edit_file(path);
+}
+
+void aster_api_run_file_manager(void) {
+    run_file_manager();
+}
+
+/*
+ * Install helpers – pomocné funkce pro instalaci systému.
+ */
+
+int aster_api_fs_ensure_dir(const char *path) {
+    return fs_ensure_dir(path);
+}
+
+int aster_api_fs_ensure_file_text(const char *path, const char *text) {
+    return fs_ensure_file_text(path, text);
+}
+
+int aster_api_system_is_installed(void) {
+    return system_is_installed();
+}
+
+/*
+ * Status bar API – překreslení stavového řádku.
+ */
+
+void aster_api_render_statusbar(void) {
+    render_shell_statusbar();
 }
