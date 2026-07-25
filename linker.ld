@@ -3,7 +3,6 @@
  * Autor: Pavel Kalaš
  * Rok: 2026
  *
- * Vytvořeno jen tak z nudy a z chuti zkoušet nové věci.
  */
 
 OUTPUT_FORMAT(elf64-x86-64)
@@ -31,7 +30,9 @@ SECTIONS
 
     .bss :
     {
+        __bss_start = .;
         *(COMMON)
         *(.bss*)
+        __bss_end = .;
     }
 }
