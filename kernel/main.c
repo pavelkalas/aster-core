@@ -21,6 +21,7 @@
 #include "types.h"
 
 extern void boot_sequence(void);
+extern char g_cwd[64];
 
 /**
  * Hlavní vstupní bod jádra (volaný z boot assembleru).
@@ -29,6 +30,12 @@ extern void boot_sequence(void);
  */
 void kmain(void) {
     boot_sequence();
+
+    /* Pojistka: pokud se .data sekce nenačetla správně, nastav root */
+    if (g_cwd[0] == '\0') {
+        g_cwd[0] = '/';
+        g_cwd[1] = '\0';
+    }
 
     for (;;) {
         auth_login_screen();
