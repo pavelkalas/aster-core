@@ -19,17 +19,17 @@ Projekt vznikl jako pokus napsat vlastní operační systém od nuly. Podařilo 
 * ATA PIO storage driver s AsterFS (vlastní souborový systém)
 * Bootlog – jednotné stavové výpisy při bootu s volitelným splash screenem
 * Rozdělení kódu do samostatných modulů (boot, auth, shell, editor, fm, fs_utils, statusbar, io_ports)
+* Implementaci RING 3 pro budoucí přepsání aplikací pro běh na RING 3
 
 ### Shell a vestavěné nástroje
 
-* Interaktivní shell s parsováním příkazů, aliasy a readline
+* Interaktivní shell s parsováním příkazů a readline
 * Práce se soubory a složkami – ls, cd, makdir, remdir, copdir, movdir, makfile, remfile, copfile, movfile, cat, write
 * Textový editor (edit) – šipky, Ctrl+S uložení, ESC konec
 * File manager (fm) – procházení adresářů, náhled, editace, mazání
 * Správa uživatelů – useradd, passwdch, přihlašovací obrazovka, auto-login
 * Podpora sysapps (aplikace linkované do kernelu)
 * Spouštění jednoduchých C-like skriptů (./script)
-* Pomocné aliasy (.aliases soubor)
 
 ### Instalace na disk
 
