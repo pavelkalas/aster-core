@@ -58,4 +58,7 @@ int aster_ends_with(const char *str, const char *suffix);
 /** Zkopíruje řetězec src do dst. */
 char *aster_strcpy(char *dst, const char *src);
 
+/** Převede celé číslo na řetězec. */
+void aster_int_to_str(int num, char *str);
+
 #endif

@@ -343,3 +343,42 @@ int aster_ends_with(const char *str, const char *suffix) {
         return 0;
     return aster_strcmp(str + str_len - suffix_len, suffix) == 0;
 }
+
+/**
+ * Převede celé číslo na řetězec.
+ *
+ * @param num Číslo (int)
+ * @param str Výstupní řetězec (char *)
+ */
+void aster_int_to_str(int num, char *str) {
+    int i = 0;
+    int negative = 0;
+
+    if (num == 0) {
+        str[i++] = '0';
+        str[i] = '\0';
+        return;
+    }
+
+    if (num < 0) {
+        negative = 1;
+        num = -num;
+    }
+
+    while (num > 0) {
+        str[i++] = (num % 10) + '0';
+        num /= 10;
+    }
+
+    if (negative) {
+        str[i++] = '-';
+    }
+
+    str[i] = '\0';
+
+    for (int j = 0; j < i / 2; j++) {
+        char tmp = str[j];
+        str[j] = str[i - j - 1];
+        str[i - j - 1] = tmp;
+    }
+}
