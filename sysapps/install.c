@@ -54,7 +54,6 @@ void init(void) {
     }
 
     if (setup_user[0]) {
-        /* build /home/<user> */
         {
             int p = 0;
             const char *pre = "/home/";
@@ -83,7 +82,6 @@ void init(void) {
         return;
     }
 
-    /* clear users and add new one */
     if (aster_api_user_add(setup_user, setup_pass) != 0 || aster_api_user_save() != 0) {
         aster_api_set_color(0x0C, 0x00);
         aster_api_print_line("Setup error: nelze ulozit uzivatele");
@@ -97,7 +95,6 @@ void init(void) {
     if (k != '\n') display_putc((char)k);
     display_putc('\n');
     if (k == 'y' || k == 'Y') {
-        /* sync before reboot */
         aster_api_reboot();
     }
 }

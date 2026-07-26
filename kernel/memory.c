@@ -157,3 +157,56 @@ usize memory_total_pages(void) {
 usize memory_free_pages(void) {
     return free_pages;
 }
+
+/*
+ * Page table funkce pro ring 3.
+ */
+
+/**
+ * Vrací ukazatel na PD entry pro danou 2MB-aligned virtuální adresu.
+ *
+ * @param vaddr Virtuální adresa (u64)
+ * @return      Ukazatel na 64bit PD entry (u64 *)
+ */
+static u64 *pd_entry_for(u64 vaddr) {
+    u64 pd_index = (vaddr >> 21) & 0x1FFULL;  /* 512 entries per PD */
+    u64 *pd = (u64 *)PD_BASE;
+    return &pd[pd_index];
+}
+
+/**
+ * Nastaví USER bit na PD entry pro danou 2MB stránku.
+ * Tím zpřístupní stránku z ring 3.
+ *
+ * @param virtual_addr Virtuální adresa v rámci 2MB stránky (u64)
+ */
+void page_make_user(u64 virtual_addr) {
+    u64 *entry = pd_entry_for(virtual_addr);
+    *entry |= PAGE_USER;
+}
+
+/**
+ * Alokuje fyzickou 2MB stránku (512 × 4KB) a namapuje ji
+ * jako user-accessible na zadané virtuální adrese.
+ *
+ * @param virtual_addr Virtuální adresa (musí být zarovnaná na 2MB) (u64)
+ */
+void page_map_user_2mb(u64 virtual_addr) {
+    u64 *entry = pd_entry_for(virtual_addr);
+    u64 cr3_val;
+    u64 *pml4 = (u64 *)PML4_BASE;
+    u64 *pdpt = (u64 *)PDPT_BASE;
+
+    /*
+     * Nastavit USER bit na všech úrovních page tabulek:
+     * PML4, PDPT i PD. Bez toho CPU při přístupu z ring 3
+     * vyhodí page fault (error code 5 – user access denied).
+     */
+    pml4[0] |= PAGE_USER;
+    pdpt[0] |= PAGE_USER;
+    *entry |= PAGE_USER;
+
+    /* Plná TLB invalidace – přenačtení CR3 */
+    __asm__ volatile ("mov %%cr3, %0" : "=r"(cr3_val));
+    __asm__ volatile ("mov %0, %%cr3" : : "r"(cr3_val) : "memory");
+}

@@ -18,6 +18,7 @@
 #include "memory.h"
 #include "printk.h"
 #include "process.h"
+#include "ring3.h"
 #include "scheduler.h"
 #include "serial.h"
 #include "statusbar.h"
@@ -88,6 +89,10 @@ void boot_sequence(void) {
     boot_step_begin("Preruseni");
     interrupts_init();
     boot_step_ok("Preruseni");
+
+    boot_step_begin("Ring 3 (user mode)");
+    ring3_init();
+    boot_step_ok("Ring 3 (user mode)");
 
     aster_print("\nNacitam kernel...\n");
     timer_sleep_ms(600);

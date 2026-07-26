@@ -21,11 +21,10 @@
 #include "timer.h"
 #include "syscall.h"
 
-/**
- * Inicializuje vrstvu syscallů (v této implementaci prázdná).
+/*
+ * Inicializace syscall vrstvy – MSR registry jsou nastaveny
+ * v arch/x86_64/syscall_entry.asm (syscall_init).
  */
-void syscall_init(void) {
-}
 
 /**
  * Hlavní dispatcher systémových volání.

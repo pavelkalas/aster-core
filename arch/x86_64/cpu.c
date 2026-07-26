@@ -59,7 +59,8 @@ struct __attribute__((packed)) idt_ptr {
     u64 base;
 };
 
-static u64 gdt_table[3];
+static u64 gdt_table[7];
+static tss_t g_tss __attribute__((aligned(16)));
 static struct idt_entry idt[IDT_ENTRIES];
 
 /**
@@ -172,21 +173,90 @@ static void dump_frame(interrupt_frame_t *f) {
 }
 
 /**
- * Inicializuje GDT (Global Descriptor Table).
- * Nastavuje null descriptor, kódový segment (ring 0) a datový segment (ring 0).
+ * Inicializuje GDT (Global Descriptor Table) s ring 0 a ring 3 segmenty,
+ * inicializuje TSS pro přechody mezi ringy a zapisuje TSS do GDT.
+ * Volá arch_load_gdt a arch_reload_segments pro aplikování změn.
  */
 void cpu_init(void) {
     struct gdt_ptr gp;
+    u64 tss_base;
+    u64 tss_limit;
+    u64 tss_entry_low;
+    u64 tss_entry_high;
 
+    /* Null descriptor */
     gdt_table[0] = 0x0000000000000000ULL;
+
+    /* Kernel code (ring 0, DPL=0): 0x08 */
     gdt_table[1] = 0x00AF9A000000FFFFULL;
+
+    /* Kernel data (ring 0, DPL=0): 0x10 */
     gdt_table[2] = 0x00CF92000000FFFFULL;
+
+    /* User data (ring 3, DPL=3): 0x18, používá se jako 0x1B */
+    gdt_table[3] = 0x00CFF2000000FFFFULL;
+
+    /* User code (ring 3, DPL=3): 0x20, používá se jako 0x23 */
+    gdt_table[4] = 0x00AFFA000000FFFFULL;
+
+    /* TSS – dva sloty (každý 8 bajtů) */
+    tss_base = (u64)&g_tss;
+    tss_limit = sizeof(tss_t) - 1;
+
+    tss_entry_low  = (tss_limit & 0xFFFFULL)
+                   | ((tss_base & 0xFFFFFFULL) << 16)
+                   | (0x89ULL << 40)
+                   | (((tss_base >> 24) & 0xFFULL) << 56);
+    tss_entry_high = (tss_base >> 32) & 0xFFFFFFFFULL;
+
+    gdt_table[5] = tss_entry_low;
+    gdt_table[6] = tss_entry_high;
 
     gp.limit = sizeof(gdt_table) - 1;
     gp.base = (u64)&gdt_table[0];
 
     arch_load_gdt(&gp);
     arch_reload_segments();
+
+    /* Inicializace TSS – vynulování, IOPB offset za konec struktury */
+    {
+        usize i;
+        u8 *tss_bytes = (u8 *)&g_tss;
+        for (i = 0; i < sizeof(tss_t); ++i) {
+            tss_bytes[i] = 0;
+        }
+    }
+    g_tss.iopb = sizeof(tss_t);
+
+    /* Načtení TR (Task Register) – selektor TSS je 0x28 */
+    tss_flush();
+}
+
+/**
+ * Nastaví kernel stack pointer (RSP0) v TSS.
+ * Toto je stack, na který CPU přepne při přerušení z ring 3.
+ *
+ * @param rsp0 Hodnota RSP0 (u64)
+ */
+void tss_set_rsp0(u64 rsp0) {
+    g_tss.rsp0 = rsp0;
+}
+
+/**
+ * Vrátí ukazatel na globální TSS strukturu.
+ *
+ * @return Ukazatel na TSS (tss_t *)
+ */
+tss_t *tss_get(void) {
+    return &g_tss;
+}
+
+/**
+ * Načte Task Register (TR) selektorem 0x28 (TSS v GDT).
+ * Používá instrukci LTR.
+ */
+void tss_flush(void) {
+    __asm__ volatile ("ltr %%ax" : : "a"(0x28));
 }
 
 /**

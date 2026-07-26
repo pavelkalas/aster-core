@@ -26,6 +26,7 @@ KERNEL_OBJS := \
 	$(BUILD)/arch/x86_64/gdt.o \
 	$(BUILD)/arch/x86_64/idt.o \
 	$(BUILD)/arch/x86_64/interrupts.o \
+	$(BUILD)/arch/x86_64/syscall_entry.o \
 	$(BUILD)/arch/x86_64/cpu.o \
 	$(BUILD)/kernel/main.o \
 	$(BUILD)/kernel/boot.o \
@@ -34,6 +35,7 @@ KERNEL_OBJS := \
 	$(BUILD)/kernel/printk.o \
 	$(BUILD)/kernel/memory.o \
 	$(BUILD)/kernel/process.o \
+	$(BUILD)/kernel/ring3.o \
 	$(BUILD)/kernel/scheduler.o \
 	$(BUILD)/kernel/syscall.o \
 	$(BUILD)/kernel/aster_api.o \
@@ -51,6 +53,7 @@ KERNEL_OBJS := \
 	$(BUILD)/drivers/serial.o \
 	$(BUILD)/drivers/timer.o \
 	$(BUILD)/drivers/storage.o \
+	$(BUILD)/sysapps/ring3test.o \
 	$(SYSAPP_REGISTRY_OBJ) \
 	$(SYSAPP_OBJS)
 
@@ -84,6 +87,10 @@ $(BUILD)/kernel/%.o: kernel/%.c | $(BUILD)
 
 $(BUILD)/drivers/%.o: drivers/%.c | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILD)/sysapps/%.o: sysapps/%.asm | $(BUILD)
+	mkdir -p $(dir $@)
+	$(AS) -f elf64 $< -o $@
 
 $(BUILD)/sysapps/%.o: sysapps/%.c | $(BUILD)
 	mkdir -p $(dir $@)
