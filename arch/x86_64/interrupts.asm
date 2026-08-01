@@ -72,6 +72,8 @@ ISR_NOERR 31
 ISR_NOERR 32
 ISR_NOERR 33
 ISR_NOERR 128
+; Soft interrupt z ring3 trampoline pro navrat do kernelu.
+ISR_NOERR 129
 
 isr_common:
     cld
@@ -150,4 +152,5 @@ isr_stub_table:
     dq isr_32
     dq isr_33
     dq isr_128
+    dq isr_129
 
