@@ -27,6 +27,7 @@ KERNEL_OBJS := \
 	$(BUILD)/arch/x86_64/idt.o \
 	$(BUILD)/arch/x86_64/interrupts.o \
 	$(BUILD)/arch/x86_64/syscall_entry.o \
+	$(BUILD)/arch/x86_64/ring3_sysapp_trampoline.o \
 	$(BUILD)/arch/x86_64/cpu.o \
 	$(BUILD)/kernel/main.o \
 	$(BUILD)/kernel/boot.o \
