@@ -77,7 +77,10 @@ void shell_edit_file(const char *path) {
     const char *base = path_basename(path);
     usize bi = 0;
 
-    while (prefix[tp] && tp + 1 < sizeof(title)) title[tp++] = prefix[tp];
+    while (prefix[tp] && tp + 1 < sizeof(title)) {
+        title[tp] = prefix[tp];
+        ++tp;
+    }
     while (base[bi] && tp + 1 < sizeof(title)) title[tp++] = base[bi++];
     title[tp] = '\0';
 
@@ -106,7 +109,7 @@ void shell_edit_file(const char *path) {
                 tick_counter += delta;
                 if (tick_counter >= shift_interval) {
                     g_status_marquee_offset++;
-                    tick_counter = 0;
+                    tick_counter -= shift_interval;
                     render_shell_statusbar();
                 }
                 last_anim = now;
