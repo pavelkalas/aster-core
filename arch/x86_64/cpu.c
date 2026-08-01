@@ -14,6 +14,7 @@
 #include "cpu.h"
 #include "panic.h"
 #include "printk.h"
+#include "ring3.h"
 #include "scheduler.h"
 #include "syscall.h"
 #include "timer.h"
@@ -261,7 +262,8 @@ void tss_flush(void) {
 
 /**
  * Inicializuje IDT a PIC.
- * Nastaví obsluhy pro vektory 0–33 (výjimky + IRQ0–IRQ1) a vektor 128 (syscall).
+ * Nastaví obsluhy pro vektory 0–33 (výjimky + IRQ0–IRQ1),
+ * vektor 128 (syscall) a vektor 129 (ring3 navrat).
  * Poté povolí přerušení (STI).
  */
 void interrupts_init(void) {
@@ -277,6 +279,7 @@ void interrupts_init(void) {
     }
 
     set_idt_gate(128, isr_stub_table[34], 0xEE);
+    set_idt_gate(RING3_RETURN_VECTOR, isr_stub_table[35], 0xEE);
 
     ip.limit = sizeof(idt) - 1;
     ip.base = (u64)&idt[0];
@@ -313,6 +316,20 @@ void interrupt_dispatch(interrupt_frame_t *frame) {
     if (frame->vector == 128) {
         frame->rax = syscall_dispatch(frame->rax, frame->rbx, frame->rcx, frame->rdx, frame->rsi);
         return;
+    }
+
+    /* Ring3 sysapp dokoncila beh a zada navrat zpet do kernel kontextu. */
+    if (frame->vector == RING3_RETURN_VECTOR) {
+        if (ring3_handle_return_vector(frame->vector,
+                                       frame->cs,
+                                       &frame->cs,
+                                       &frame->rip,
+                                       &frame->rsp,
+                                       &frame->rflags,
+                                       &frame->ss,
+                                       &frame->rbp)) {
+            return;
+        }
     }
 }
 
