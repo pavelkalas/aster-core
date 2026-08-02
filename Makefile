@@ -15,6 +15,7 @@ BUILD := build
 IMG := $(BUILD)/aster.img
 DATA_DISK := asterfs.img
 BRIDGE_IF ?= br0
+HTTP_PORT ?= 8080
 
 SYSAPP_SRCS := $(wildcard sysapps/*.c)
 SYSAPP_OBJS := $(patsubst sysapps/%.c,$(BUILD)/sysapps/%.o,$(SYSAPP_SRCS))
@@ -52,6 +53,7 @@ KERNEL_OBJS := \
 	$(BUILD)/drivers/keyboard.o \
 	$(BUILD)/drivers/serial.o \
 	$(BUILD)/drivers/timer.o \
+	$(BUILD)/drivers/network.o \
 	$(BUILD)/drivers/storage.o \
 	$(BUILD)/sysapps/ring3test.o \
 	$(SYSAPP_REGISTRY_OBJ) \
@@ -133,7 +135,7 @@ $(DATA_DISK):
 	test -f $(DATA_DISK) || dd if=/dev/zero of=$(DATA_DISK) bs=512 count=8192
 
 run: $(IMG) $(DATA_DISK)
-	qemu-system-x86_64 -drive format=raw,file=$(IMG),if=ide,index=0 -drive format=raw,file=$(DATA_DISK),if=ide,index=1
+	qemu-system-x86_64 -drive format=raw,file=$(IMG),if=ide,index=0 -drive format=raw,file=$(DATA_DISK),if=ide,index=1 -netdev user,id=net0,hostfwd=tcp:127.0.0.1:$(HTTP_PORT)-:$(HTTP_PORT) -device ne2k_isa,netdev=net0,iobase=0x300,irq=9
 
 clean:
 	rm -rf $(BUILD)

@@ -11,11 +11,12 @@
  */
 
 #include "aster_api.h"
+#include "aster_version.h"
 #include "display.h"
 #include "drivers.h"
 
 void init(void) {
-    static const char motd[] = "Welcome to aster-core v0.13\nType 'help' for commands.\n";
+    static const char motd[] = "Welcome to aster-core " ASTER_CORE_VERSION_TAG "\nType 'help' for commands.\n";
     static const char profile[] = "echo Welcome in aster-core\n";
     static const char installed[] = "installed=1\n";
     char setup_user[32], setup_pass[32], user_home[64];

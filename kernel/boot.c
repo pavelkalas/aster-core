@@ -16,6 +16,7 @@
 #include "drivers.h"
 #include "int.h"
 #include "memory.h"
+#include "network.h"
 #include "printk.h"
 #include "process.h"
 #include "ring3.h"
@@ -77,6 +78,10 @@ void boot_sequence(void) {
     boot_step_begin("Casovac");
     timer_init((unsigned int)g_timer_hz);
     boot_step_ok("Casovac");
+
+    boot_step_begin("Sitovy ovladac");
+    if (network_init()) boot_step_ok("Sitovy ovladac");
+    else boot_step_skip("Sitovy ovladac");
 
     boot_step_begin("Obnova shellu");
     keyboard_set_refresh_callback(shell_status_refresh_callback, g_timer_hz ? g_timer_hz : 100UL);

@@ -11,6 +11,7 @@
  */
 
 #include "shell.h"
+#include "aster_version.h"
 #include "aster_api.h"
 #include "auth.h"
 #include "display.h"
@@ -49,7 +50,7 @@ void print_error(const char *msg) {
  */
 void show_aster_banner(const char *subtitle) {
     aster_api_set_color(0x08, 0x00);
-    aster_print("[aster-core v0.13] Copyright (c) 2026 Pavel Kalas\n\n");
+    aster_print("[aster-core " ASTER_CORE_VERSION_TAG "] Copyright (c) 2026 Pavel Kalas\n\n");
     aster_api_set_color(0x0F, 0x00);
     if (subtitle && subtitle[0]) printk("%s\n", subtitle);
 }

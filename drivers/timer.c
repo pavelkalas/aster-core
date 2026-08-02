@@ -11,6 +11,7 @@
  * a poskytuje blokující uspání jádra na zadaný počet milisekund.
  */
 
+#include "network.h"
 #include "timer.h"
 
 static volatile unsigned long g_ticks = 0;
@@ -96,6 +97,7 @@ unsigned long timer_ticks(void) {
  */
 void timer_tick_advance(void) {
     ++g_ticks;
+    network_poll();
 }
 
 /**

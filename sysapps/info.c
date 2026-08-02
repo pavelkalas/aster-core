@@ -11,6 +11,7 @@
  */
 
 #include "aster_api.h"
+#include "aster_version.h"
 
 void init(void) {
     u64 ticks;
@@ -18,7 +19,7 @@ void init(void) {
     {
         char buf[64];
         int pos = 0;
-        const char *s = "aster-core v0.13 | Autor: Pavel Kalas | Rok: 2026\ntick=";
+        const char *s = "aster-core " ASTER_CORE_VERSION_TAG " | Autor: Pavel Kalas | Rok: 2026\ntick=";
         while (*s) buf[pos++] = *s++;
         /* simple u64 to str */
         {

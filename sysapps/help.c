@@ -34,6 +34,7 @@ static const char g_help_lines[][80] = {
     "install               - instalace systemu na disk",
     "fm                    - file manager",
     "edit filename         - editor (Ctrl+S, ESC)",
+    "httpserve path port   - hostovat soubor nebo slozku pres HTTP",
     "<sysapps nazvy>       - appka ze slozky sysapps",
     "echo text             - vypis textu",
     "ticks                 - pocet tiknuti casovace",

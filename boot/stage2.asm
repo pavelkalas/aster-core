@@ -73,6 +73,24 @@ load_kernel:
     mov ax, 127
 
 .use_rest:
+    ; BIOS extended reads must not cross a 64 KiB real-mode buffer boundary.
+    mov bx, [current_seg]
+    and bx, 0x0FFF
+    shl bx, 4
+    neg bx
+    jnz .have_boundary_limit
+    mov bx, 128
+    jmp .limit_chunk
+
+.have_boundary_limit:
+    shr bx, 9
+
+.limit_chunk:
+    cmp ax, bx
+    jbe .chunk_limited
+    mov ax, bx
+
+.chunk_limited:
     mov [chunk_sectors], ax
 
     mov word [dap + 2], ax
@@ -134,6 +152,7 @@ dap:
     dw 0
     dw 0
     dw 0
+    dd 0
     dd 0
 
 remaining_sectors: dw 0

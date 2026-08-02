@@ -6,6 +6,7 @@
  * Hlavní orchestrator — boot, login, shell smyčka.
  */
 
+#include "aster_version.h"
 #include "auth.h"
 #include "boot.h"
 #include "bootlog.h"
@@ -69,7 +70,7 @@ void kmain(void) {
     boot_sequence();
 
     show_centered_aster_logo();
-    timer_sleep_ms(3000);
+    timer_sleep_ms(1600);
 
     /* Pojistka: pokud se .data sekce nenačetla správně, nastav root */
     if (g_cwd[0] == '\0') {
@@ -92,7 +93,7 @@ void kmain(void) {
             show_aster_banner("Shell");
         } else {
             display_set_color(0x07, 0x00);
-            aster_print("[aster-core v0.13] Copyright (c) 2026 Pavel Kalas\n\n");
+            aster_print("[aster-core " ASTER_CORE_VERSION_TAG "] Copyright (c) 2026 Pavel Kalas\n\n");
             display_set_color(0x04, 0x00);
             aster_print("Tento system neni nainstalovan. Pro instalaci spustte prikaz: install\n");
             display_set_color(0x0F, 0);
