@@ -39,14 +39,7 @@ Po spuštění je možné systém nainstalovat příkazem install – vytvoří 
 
 `make run` spousti QEMU s user-mode NATem, emulovanou ISA kartou NE2000 a
 presmerovanim `127.0.0.1:8080` hosta na port `8080` guestu. Kernel ma pro tuto
-konfiguraci statickou adresu `10.0.2.15` a poskytuje jednoduchy HTTP server.
-
-Ve Windows spust build a QEMU pres Ubuntu WSL:
-
-```sh
-wsl -d Ubuntu -- bash -lc 'cd /mnt/c/Users/pavelkalas/Desktop/aster-core && make'
-wsl -d Ubuntu -- bash -lc 'cd /mnt/c/Users/pavelkalas/Desktop/aster-core && make run'
-```
+konfiguraci statickou adresu napr. `10.0.2.15` a poskytuje jednoduchy HTTP server.
 
 Po nabootovani nastav obsah serveru v shellu. Port musi byt stejny jako
 `HTTP_PORT`, se kterym QEMU spustis:
