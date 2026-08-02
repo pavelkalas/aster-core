@@ -51,6 +51,8 @@ int  auth_load_users(void);
 int  auth_set_pass(const char *user, const char *pass);
 /** Najde uživatele s prázdným heslem (auto-login). */
 int  auth_find_autologin_user(void);
+/** Vrátí 1 pokud existuje alespoň jeden uživatel, jinak 0. */
+int  auth_has_any_user(void);
 /** Zobrazí přihlašovací obrazovku. */
 void auth_login_screen(void);
 

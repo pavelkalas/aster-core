@@ -193,6 +193,18 @@ int auth_find_autologin_user(void) {
 }
 
 /**
+ * Zjistí, zda existuje alespoň jeden uživatel.
+ *
+ * @return 1 pokud je dostupný minimálně jeden účet, jinak 0 (int)
+ */
+int auth_has_any_user(void) {
+    if (auth_load_users() != 0) {
+        return 0;
+    }
+    return g_user_count > 0 ? 1 : 0;
+}
+
+/**
  * Zobrazí přihlašovací obrazovku.
  * Pokud systém není nainstalován, přihlásí se jako "guest".
  * Pokud existuje uživatel s prázdným heslem, provede auto-login.

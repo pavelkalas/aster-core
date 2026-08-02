@@ -270,7 +270,7 @@ void boot_step_begin(const char *label) {
     display_set_color(0x0F, 0x00);
     printk("[ *** ] %s", label);
 
-    timer_sleep_ms(100);
+    timer_sleep_ms(5);
 }
 
 /**
@@ -357,5 +357,5 @@ void system_shutdown_prepare(const char *typ) {
         boot_step_finish("Synchronizace souboroveho systemu", "CHYBA", 0x0C);
     }
 
-    timer_sleep_ms(1000);
+    timer_sleep_ms(500);
 }

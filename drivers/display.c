@@ -52,7 +52,7 @@ static void update_hw_cursor(void) {
  * @return    16bitová hodnota pro VGA buffer (u16)
  */
 static inline u16 vga_entry(char c, u8 clr) {
-    return (u16)c | ((u16)clr << 8);
+    return (u16)(u8)c | ((u16)clr << 8);
 }
 
 /**
